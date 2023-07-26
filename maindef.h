@@ -6,9 +6,13 @@
 #include <stdlib.h>
 
 #include "ezlife.h"
+#include "memory.h"
 
 #include "cvar.h"
 #include "console.h"
+
+#include "world.h"
+
 #include "game.h"
 
 #endif

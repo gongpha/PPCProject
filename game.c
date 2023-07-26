@@ -45,6 +45,7 @@ void game__init_args(int argc, char** argv) {
 
 void loop_window() {
 	// CLEAR YO MAMA
+	glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
