@@ -1,8 +1,11 @@
 #ifndef _H_GAME_H_
 #define _H_GAME_H_
 
-int game__printf(const char* fmt, ...);
-void game__init_args(int argc, char** argv);
-int game__loop();
+int Game_printf(const char* fmt, ...);
+void Game_init_args(int argc, char** argv);
+int Game_loop();
+
+int Game_win_get_width();
+int Game_win_get_height();
 
 #endif

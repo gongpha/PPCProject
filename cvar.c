@@ -13,7 +13,7 @@ void cvar_register(cvar_t* cvar) {
 		cvar_t* cursor = cvar_root;
 		while (cursor->next) {
 			if (String_MATCH(cursor->name, cvar->name)) {
-				con__printf("cvar \"%s\" is already exist bro", cursor->name);
+				Con_printf("cvar \"%s\" is already exist bro", cursor->name);
 				return;
 			}
 			cursor = cursor->next;

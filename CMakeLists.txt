@@ -9,7 +9,7 @@ set( GLFW_BUILD_DOCS OFF CACHE BOOL  "GLFW lib only" )
 set( GLFW_INSTALL OFF CACHE BOOL  "GLFW lib only" )
 
 add_subdirectory(glfw)
-#add_subdirectory(cglm)
+add_subdirectory(cglm)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -23,6 +23,7 @@ file(GLOB PPCProject_SRC
 
 add_executable (PPCProject ${PPCProject_SRC})
 target_link_libraries(PPCProject ${OPENGL_LIBRARIES} glfw)
+target_link_libraries(PPCProject ${OPENGL_LIBRARIES} cglm)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET PPCProject PROPERTY C_STANDARD 23) # USE C. NO C++

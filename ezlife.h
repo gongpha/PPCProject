@@ -12,6 +12,8 @@ typedef unsigned long u_long;
 typedef unsigned short u_short;
 typedef unsigned char u_char;
 
+#define ASSET(path) ("assets/" path)
+
 /* fake boolean lmao */
 typedef char bool_t;
 #define true 1;
@@ -23,6 +25,8 @@ typedef char bool_t;
 
 /* GLOBAL ERROR CODES */
 #define ERR_OK 0
-#define ERR_OUT_OF_MEMORY -555 // why do u laugh ??? your memory is dying apparently
+#define ERR_CANNOT_LOAD_RESOURCE	1
+#define ERR_RESOURCE_IS_NULL		2
+#define ERR_OUT_OF_MEMORY			555		// why do u laugh ??? your memory is dying apparently
 
 #endif

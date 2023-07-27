@@ -1,23 +1,23 @@
 #include "world.h"
 
-char loaded_world[256]; // if the first character is not 0, then the world is loaded.
+char world_loaded_world[256]; // if the first character is not 0, then the world is loaded.
 
-memory_t world_entities_src;
+MEMSTATIC(world_entities_src);
 
-memory_t world_planes;
-memory_t world_textures;
-memory_t world_vertices;
-memory_t world_vislist;
-memory_t world_nodes; // bsp nodes
-memory_t world_surface;
-memory_t world_faces;
-memory_t world_lightmaps;
-memory_t world_clipnodes;
-memory_t world_leaves;
-memory_t world_lface;
-memory_t world_edges;
-memory_t world_ledges;
-memory_t world_models;
+MEMSTATIC(world_planes);
+MEMSTATIC(world_textures);
+MEMSTATIC(world_vertices);
+MEMSTATIC(world_vislist);
+MEMSTATIC(world_nodes); // bsp nodes
+MEMSTATIC(world_surface);
+MEMSTATIC(world_faces);
+MEMSTATIC(world_lightmaps);
+MEMSTATIC(world_clipnodes);
+MEMSTATIC(world_leaves);
+MEMSTATIC(world_lface);
+MEMSTATIC(world_edges);
+MEMSTATIC(world_ledges);
+MEMSTATIC(world_models);
 
 #include "memory.h"
 
@@ -25,14 +25,14 @@ memory_t world_models;
 #include <GLFW/glfw3.h>
 
 void world__init() {
-	loaded_world[0] = 0;
+	world_loaded_world[0] = 0;
 }
 
 void world__clear() {
 	// delet
-	mem__release(&world_entities_src);
-	mem__release(&world_planes);
-	mem__release(&world_textures);
+	Mem_release(&world_entities_src);
+	Mem_release(&world_planes);
+	Mem_release(&world_textures);
 }
 
 int world__load_bsp(const char* map_name)

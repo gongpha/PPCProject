@@ -15,12 +15,15 @@ typedef struct {
 } memory_t;
 
 
-int mem__create(memory_t* m, size_t byte_num);
-int mem__create_array(memory_t* m, size_t size_each, size_t num);
-void mem__release(memory_t* m);
+int Mem_create(memory_t* m, size_t byte_num);
+int Mem_create_array(memory_t* m, size_t size_each, size_t num);
+void Mem_release(memory_t* m);
 
-#define MEMCREATE(object, size) if (mem__create(&object, size) == ERR_OUT_OF_MEMORY) return ERR_OUT_OF_MEMORY
-#define MEMCREATEARRAY(object, sizeeach, num) if (mem__create_array(&object, sizeeach, num) == ERR_OUT_OF_MEMORY) return ERR_OUT_OF_MEMORY
+#define MEMSTATIC(name) memory_t name = { 0, 0, NULL }
+#define MEM(name) {name.size = 0; name.size_each = 0; name.data = NULL;}
+
+#define MEMCREATE(object, size) if (Mem_create(&object, size) == ERR_OUT_OF_MEMORY) return ERR_OUT_OF_MEMORY
+#define MEMCREATEARRAY(object, sizeeach, num) if (Mem_create_array(&object, sizeeach, num) == ERR_OUT_OF_MEMORY) return ERR_OUT_OF_MEMORY
 
 #define MEMREADLUMP(object, file) fread(object.data, object.size_each, object.size, file)
 #define MEMARRAYINDEXPTR(object, cast_to, index) (&((cast_to*)object.data)[index])

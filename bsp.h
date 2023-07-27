@@ -157,4 +157,13 @@ typedef struct
 	long face_num;
 } model_t;
 
+//
+
+typedef struct
+{
+	float x;
+	float y;
+	float z;
+} vector_t;
+
 #endif
