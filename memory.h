@@ -19,6 +19,8 @@ int Mem_create(memory_t* m, size_t byte_num);
 int Mem_create_array(memory_t* m, size_t size_each, size_t num);
 void Mem_release(memory_t* m);
 
+void Mem_replace(memory_t* from, memory_t* to);
+
 #define MEMSTATIC(name) memory_t name = { 0, 0, NULL }
 #define MEM(name) {name.size = 0; name.size_each = 0; name.data = NULL;}
 

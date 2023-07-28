@@ -5,15 +5,25 @@
 
 bool_t game_is_server = false; // true if im a server
 
+bool_t queue_exit = false;
+
+uint32_t frame_processed = 0;
+
 // for clients
 CVAR_CREATE(win_width, "1280");
 CVAR_CREATE(win_height, "720");
+
+CVAR_CREATE(fps_max, "120");
+
+///////////////////////////////////
+
 GLFWwindow* window;
 mat4 projection;
 
 void Game_init() {
 	cvar_register(&win_width);
 	cvar_register(&win_height);
+	cvar_register(&fps_max);
 }
 
 void init_modules() {
@@ -48,30 +58,6 @@ void Game_init_args(int argc, char** argv) {
 	Game_printf("WOWAAAAAAAA\n");
 }
 
-void loop_window() {
-	// CLEAR YO MAMA
-	glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-}
-
-void loop_end() {
-	glfwSwapBuffers(window);
-	glfwPollEvents();
-}
-
-int Game_loop()
-{
-	while (!glfwWindowShouldClose(window))
-	{
-		loop_window();
-
-		Con_draw_console();
-
-		loop_end();
-	}
-	return 0;
-}
-
 int Game_win_get_width()
 {
 	return win_width.num;
@@ -97,8 +83,13 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	SETPRO(Font);
 	SETPRO(Texture);
 #undef SETPRO
+
+	if (Con_resize_console(width, height) == ERR_OUT_OF_MEMORY) {
+		queue_exit = true;
+	}
 }
 
+void Game_begin();
 int Game_start() {
 	// init glfw
 	if (!glfwInit())
@@ -127,11 +118,70 @@ int Game_start() {
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
 	init_modules();
+	Game_begin();
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	framebuffer_size_callback(window, win_width.num, win_height.num);
 
 	return 0;
+}
+
+double last_sec_frame = 0;
+uint32_t last_fps = 0;
+uint32_t frame_counter = 0;
+
+double last_timer = 0;
+double delta_time = 0;
+
+void Game_frame() {
+	Con_draw_console();
+}
+
+void Game_begin() {
+	Con_make_showing(0);
+}
+
+int Game_loop()
+{
+	while (!glfwWindowShouldClose(window))
+	{
+		double current_time = glfwGetTime();
+
+		delta_time = current_time - last_timer;
+		
+		if (current_time - last_timer >= 1.0 / fps_max.num) {
+			// CLEAR YO MAMA
+			glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+			Game_frame();
+			glfwSwapBuffers(window);
+
+			frame_processed++;
+			last_timer = current_time;
+		}
+
+		if (queue_exit)
+			break;
+
+		glfwPollEvents();
+
+		if (current_time - last_sec_frame >= 1.0) {
+			last_fps = frame_processed - frame_counter;
+			frame_counter = frame_processed;
+			last_sec_frame = current_time;
+			printf("%d\n", last_fps);
+		}
+		
+	}
+
+	glfwTerminate();
+	return 0;
+}
+
+float Game_delta()
+{
+	return delta_time;
 }

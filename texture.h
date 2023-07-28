@@ -11,11 +11,13 @@ typedef struct {
 	GLint id;
 } texture_t;
 
-void Texture_init();
 void Texture_get_shader(shader_t** pptr);
 void Texture_new(texture_t* texture);
 int Texture_load_from_file(texture_t* texture, const char* path);
 void Texture_delete(texture_t* texture);
+
+void Texture_set_modulate(color_t color);
+void Texture_reset_modulate();
 
 void Texture_draw_wsize(texture_t* texture,
 	float x, float y,

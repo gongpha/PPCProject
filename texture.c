@@ -10,9 +10,17 @@ static uint32_t VAO, VBO;
 
 static int initialized = 0;
 
+///////////////////////////
+
+color_t texture_modulate;
+
 void try_init() {
 	if (initialized) return;
 	initialized = 1;
+
+	// modulate = white
+	Texture_reset_modulate();
+
 	const float vertices[] = {
 		0.0f, 1.0f,
 		1.0f, 0.0f,
@@ -87,6 +95,14 @@ void Texture_delete(texture_t* texture) {
     glDeleteTextures(1, &texture->id);
 }
 
+void Texture_set_modulate(color_t color) {
+	Color_copy(color, texture_modulate);
+}
+
+void Texture_reset_modulate() {
+	Color_copy(defcol_white, texture_modulate);
+}
+
 void Texture_draw_wsize(texture_t* texture,
 	float x, float y,
 	float xsize, float ysize
@@ -100,6 +116,10 @@ void Texture_draw_wsize(texture_t* texture,
 
 	glUniformMatrix4fv(
 		glGetUniformLocation(shader.program, "model"), 1, GL_FALSE, model
+	);
+	
+	glUniform4fv(
+		glGetUniformLocation(shader.program, "modulate"), 1, texture_modulate
 	);
 
 	glActiveTexture(GL_TEXTURE0);
