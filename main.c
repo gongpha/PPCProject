@@ -10,7 +10,7 @@ int main(int argc, char** argv)
 	Game_init_args(argc, argv);
 	if (Game_start()) return -1;
 
-	world__load_bsp("abc");
+	World_load_bsp("crossfire");
 
 	Game_loop();
 

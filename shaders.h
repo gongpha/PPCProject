@@ -64,3 +64,42 @@ void main()\
 {\
     color = texture(tex, TexCoords) * modulate;\
 }";
+
+/////////////////////////////////////////////////////////////////////
+
+static const char* WORLD_VSHADER = "#version 330 core\n\
+layout(location = 0) in vec3 vertex;\
+layout(location = 1) in vec3 normal;\
+layout(location = 2) in vec2 uv_texture;\
+layout(location = 3) in vec2 uv_lightmap;\
+out vec2 TexCoords;\
+out vec2 LightCoords;\
+out vec3 Normal;\
+out vec3 FragPos;\
+uniform mat4 model;\
+uniform mat4 projection;\
+uniform mat4 view;\
+\
+void main()\
+{\
+	TexCoords = uv_texture;\
+	LightCoords = uv_lightmap;\
+	Normal = mat3(transpose(inverse(model))) * normal;\
+	FragPos = vec3(model * vec4(vertex, 1.0));\
+	gl_Position = projection * view * vec4(FragPos, 1.0);\
+}";
+
+static const char* WORLD_FSHADER = "#version 330 core\n\
+in vec2 TexCoords;\
+in vec2 LightCoords;\
+in vec3 Normal;\
+in vec3 FragPos;\
+out vec4 FragColor;\
+uniform sampler2D tex;\
+uniform sampler2D lightmap;\
+\
+void main()\
+{\
+	vec3 result = texture(lightmap, LightCoords).r * texture(tex, TexCoords).rgb;\
+	FragColor = vec4(Normal, 1.0);\
+}";

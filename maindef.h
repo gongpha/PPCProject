@@ -6,12 +6,14 @@
 #include <stdlib.h>
 
 #include <cglm/cglm.h>
+#include "glad.h"
 
 #include "ezlife.h"
 #include "color.h"
 #include "memory.h"
 #include "shader.h"
 #include "texture.h"
+#include "soliddraw.h"
 #include "font.h"
 #include "draw.h"
 

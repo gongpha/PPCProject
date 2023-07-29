@@ -5,8 +5,8 @@
 
 typedef struct
 {
-	long  offset;
-	long  size;
+	int offset;
+	int size;
 } bsp_entry_t;
 
 typedef struct {
@@ -38,15 +38,8 @@ typedef struct {
 
 typedef struct
 {
-	scalar_t x;
-	scalar_t y;
-	scalar_t z;
-} vec3_t;
-
-typedef struct
-{
-	vec3_t   min;
-	vec3_t   max;
+	vec3   min;
+	vec3   max;
 } boundbox_t;
 
 typedef struct
@@ -59,35 +52,14 @@ typedef struct
 
 typedef struct
 {
-	vec3_t normal;
-	scalar_t dist;
-	long    type;
+	vec3 normal;
+	float dist;
+	int32_t type;
 } plane_t;
 
 typedef struct
 {
-	char   name[16];
-	u_long width;
-	u_long height;
-	u_long offset1;
-
-	// unused mipmaps (opengl is my best friend <3)
-	u_long offset2;
-	u_long offset4;
-	u_long offset8;
-} miptex_t;
-
-typedef struct
-{
-	// actually ints but idk why they preferred float numbers
-	float x;
-	float y;
-	float z;
-} vertex_t;
-
-typedef struct
-{
-	long    plane_id;
+	uint32_t    plane_id; // quake : long
 	u_short front;
 	u_short back;
 	bboxshort_t box;
@@ -97,73 +69,55 @@ typedef struct
 
 typedef struct
 {
-	vec3_t   vectorS;
+	vec3   vectorS;
 	scalar_t distS;
-	vec3_t   vectorT;
+	vec3   vectorT;
 	scalar_t distT;
-	u_long   texture_id;
-	u_long   animated;
-} surface_t;
+	uint32_t   texture_id; // miptex id
+	uint32_t   animated; // 0, all the time
+} surface_t; // tex info
 
 typedef struct
 {
 	u_short plane_id;
 	u_short side;
-	long ledge_id;
-	u_short ledge_num;
+	uint32_t first_edge;
+	u_short edge_count;
 	u_short texinfo_id;
-	u_char typelight;
-	u_char baselight;
-	u_char light[2];
-	long lightmap;
+	u_char light[4];
+	uint32_t lightmap;
 } face_t;
 
 typedef struct
 {
-	u_long planenum;
-	short front;
-	short back;
+	int32_t plane_id;
+	int16_t front;
+	int16_t back;
 } clipnode_t;
 
 typedef struct
 {
-	long type;
-	long vislist;
+	int32_t type;
+	int32_t vislist;
 	bboxshort_t bound;
 	u_short lface_id;
 	u_short lface_num;
-	u_char sndwater; // change ?
-	u_char sndsky; // change ?
-	u_char sndslime; // change ?
-	u_char sndlava; // change ?
+	uint8_t ambients[4];
 } dleaf_t;
 
 typedef struct
 {
-	u_short vertex0;
-	u_short vertex1;
+	uint16_t vertex[2];
 } edge_t;
 
 typedef struct
 {
 	boundbox_t bound;
-	vec3_t origin;
-	long node_id0;
-	long node_id1;
-	long node_id2;
-	long node_id3;
-	long numleafs;
-	long face_id;
-	long face_num;
+	vec3 origin;
+	int32_t node_hulls[4];
+	int32_t numleafs;
+	int32_t face_id;
+	int32_t face_num;
 } model_t;
-
-//
-
-typedef struct
-{
-	float x;
-	float y;
-	float z;
-} vector_t;
 
 #endif

@@ -27,6 +27,7 @@ typedef char bool_t;
 #define ERR_OK 0
 #define ERR_CANNOT_LOAD_RESOURCE	1
 #define ERR_RESOURCE_IS_NULL		2
+#define ERR_CANNOT_OPEN				3
 #define ERR_OUT_OF_MEMORY			555		// why do u laugh ??? your memory is dying apparently
 
 #endif

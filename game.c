@@ -28,6 +28,7 @@ void Game_init() {
 
 void init_modules() {
 	Con_init();
+	World_init();
 }
 
 // just printf . . .
@@ -84,6 +85,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	SETPRO(Texture);
 #undef SETPRO
 
+	World_resize_viewport(width, height);
+
 	if (Con_resize_console(width, height) == ERR_OUT_OF_MEMORY) {
 		queue_exit = true;
 	}
@@ -122,6 +125,7 @@ int Game_start() {
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	framebuffer_size_callback(window, win_width.num, win_height.num);
@@ -137,6 +141,7 @@ double last_timer = 0;
 double delta_time = 0;
 
 void Game_frame() {
+	World_draw();
 	Con_draw_console();
 }
 
@@ -155,7 +160,7 @@ int Game_loop()
 		if (current_time - last_timer >= 1.0 / fps_max.num) {
 			// CLEAR YO MAMA
 			glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			Game_frame();
 			glfwSwapBuffers(window);
 
@@ -172,7 +177,7 @@ int Game_loop()
 			last_fps = frame_processed - frame_counter;
 			frame_counter = frame_processed;
 			last_sec_frame = current_time;
-			printf("%d\n", last_fps);
+			//printf("%d\n", last_fps);
 		}
 		
 	}

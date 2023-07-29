@@ -1,5 +1,7 @@
 #include "memory.h"
 
+#include "maindef.h"
+
 #include <stdlib.h>
 
 size_t mem_used = 0;
@@ -14,10 +16,13 @@ int Mem_create_array(memory_t* m, size_t size_each, size_t num) {
 
 	if (m->data) {
 		if (total == 0) {
+			mem_used -= m->size * m->size_each;
 			free(m->data);
 			l = NULL;
 		}
 		else {
+			mem_used -= m->size * m->size_each;
+			mem_used += total;
 			l = realloc(m->data, total);
 			if (!l) return ERR_OUT_OF_MEMORY;
 		}
