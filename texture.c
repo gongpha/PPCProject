@@ -38,7 +38,7 @@ void try_init() {
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	
+
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), NULL);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -53,14 +53,14 @@ void Texture_get_shader(shader_t** pptr)
 }
 
 void Texture_new(texture_t* texture) {
-    glGenTextures(1, &texture->id);
-    glBindTexture(GL_TEXTURE_2D, texture->id);
-    // set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenTextures(1, &texture->id);
+	glBindTexture(GL_TEXTURE_2D, texture->id);
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// set texture filtering parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	try_init();
 }
@@ -70,14 +70,23 @@ const GLint pixelfmt_to_glpixelformat[] = {
 };
 
 int Texture_load_from_file(
-    texture_t* texture, const char* path
+	texture_t* texture, const char* path
 ) {
 	// load the image from tha PNG file
 	int comp;
-	u_char* data = stbi_load(path, &texture->width, &texture->height, &comp, 0);
+	uint8_t* data = stbi_load(path, &texture->width, &texture->height, &comp, 0);
 	if (!data)
 		return ERR_CANNOT_LOAD_RESOURCE;
 
+	int err = Texture_from_data(texture, data, texture->width, texture->height, comp);
+	stbi_image_free(data);
+
+	return err;
+}
+
+int Texture_from_data(
+	texture_t* texture, uint8_t* data, int width, int height, int comp
+) {
 	// gen opengl texture
 	glBindTexture(GL_TEXTURE_2D, texture->id);
 
@@ -86,13 +95,11 @@ int Texture_load_from_file(
 	//if (gen_mipmap)
 	//	glGenerateMipmap(GL_TEXTURE_2D);
 
-	stbi_image_free(data);
-
 	return ERR_OK;
 }
 
 void Texture_delete(texture_t* texture) {
-    glDeleteTextures(1, &texture->id);
+	glDeleteTextures(1, &texture->id);
 }
 
 void Texture_set_modulate(color_t color) {
@@ -117,7 +124,7 @@ void Texture_draw_wsize(texture_t* texture,
 	glUniformMatrix4fv(
 		glGetUniformLocation(shader.program, "model"), 1, GL_FALSE, model
 	);
-	
+
 	glUniform4fv(
 		glGetUniformLocation(shader.program, "modulate"), 1, texture_modulate
 	);

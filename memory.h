@@ -28,8 +28,8 @@ void Mem_replace(memory_t* from, memory_t* to);
 #define MEMREADLUMP(object, file) fread((char*)object.data, object.size_each, object.size, file)
 #define MEMARRAYINDEXPTR(object, cast_to, index) (&((cast_to*)object.data)[index])
 
-#define MEMCREATEDYNAMICARRAY(object, type) if (Mem_create_array(&object, sizeof(type), 2) == ERR_OUT_OF_MEMORY) return ERR_OUT_OF_MEMORY
+#define MEMCREATEDYNAMICARRAY(object, type) MEMCREATEARRAY(object, sizeof(type), 2)
 #define MEMDYNAMICARRAYPUSH(object, type, counter, item) { if (counter >= object.size) MEMCREATEARRAY(object, sizeof(type), object.size * 2); *MEMARRAYINDEXPTR(object, type, counter++) = item; }
-#define MEMDYNAMICARRAYPUSHN(object, type, counter, n, items) { while (counter + (n - 1) >= object.size) MEMCREATEARRAY(object, sizeof(type), object.size * 2); memcpy(MEMARRAYINDEXPTR(object, type, counter), items, n); counter += n; }
+//#define MEMDYNAMICARRAYPUSHN(object, type, counter, n, items) { while (counter + (n - 1) >= object.size) MEMCREATEARRAY(object, sizeof(type), object.size * 2); memcpy(MEMARRAYINDEXPTR(object, type, counter), items, n); counter += n; }
 
 #endif

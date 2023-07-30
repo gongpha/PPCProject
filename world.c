@@ -10,22 +10,31 @@ MEMSTATIC(world_textures);
 MEMSTATIC(world_models);
 
 shader_t world_shader;
+texture_t lightmap_texture;
 
 #include "glad.h"
 #include <GLFW/glfw3.h>
 
 #include "shaders.h"
 
+#define STB_RECT_PACK_IMPLEMENTATION
+#include "ext/stb_rect_pack.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "ext/stb_image_write.h"
+
 mat4 world_projection;
 mat4 world_view;
 vec3 camera_pos;
-vec3 camera_rot;
+vec3 camera_front;
+vec3 camera_up;
 
 void World_init() {
 	world_loaded_world[0] = 0;
 
 	glm_vec3_zero(camera_pos);
-	glm_vec3_zero(camera_rot);
+	glm_vec3_copy((vec3) { 0.0f, 0.0f, -1.0f }, camera_front);
+	glm_vec3_copy((vec3) { 0.0f, 1.0f, 0.0f }, camera_up);
 
 	glm_mat4_identity(world_view);
 
@@ -44,6 +53,8 @@ void World_clear() {
 	}
 	Mem_release(&world_models);
 	Mem_release(&world_textures);
+
+	Texture_delete(&lightmap_texture);
 }
 
 void World_draw()
@@ -51,6 +62,11 @@ void World_draw()
 	if (world_loaded_world[0] == 0) return;
 
 	Shader_use(&world_shader);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, lightmap_texture.id);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, lightmap_texture.id);
 
 	// draw
 	for (int i = 0; i < world_models.size; i++) {
@@ -71,7 +87,7 @@ void World_draw()
 		}
 	}
 
-	Camera_translate((vec3) { 0.0f, 0.0f, -10.0f });
+	//Camera_translate((vec3) { 0.0f, 0.0f, -10.0f });
 }
 
 void World_resize_viewport(int width, int height)
@@ -92,6 +108,10 @@ void World_resize_viewport(int width, int height)
 }
 
 void camera_upload_view_matrix() {
+	vec3 posfront;
+	glm_vec3_add(camera_pos, camera_front, posfront);
+	glm_lookat(camera_pos, posfront, camera_up, world_view);
+
 	Shader_use(&world_shader);
 	glUniformMatrix4fv(
 		glGetUniformLocation(world_shader.program, "view"),
@@ -101,14 +121,44 @@ void camera_upload_view_matrix() {
 
 void Camera_set_position(vec3 v)
 {
-	glm_vec3_copy(v, camera_pos);
-	camera_upload_view_matrix();
+	//glm_vec3_copy(v, camera_pos);
+	//camera_upload_view_matrix();
 }
 
 void Camera_translate(vec3 v)
 {
 	//glm_vec3_add(camera_pos, v, camera_pos);
-	glm_translate(world_view, v);
+	//glm_translate(world_view, v);
+	//camera_upload_view_matrix();
+}
+
+void Camera_forward(float step)
+{
+	vec3 v;
+	glm_vec3_scale(camera_front, step, v);
+	glm_vec3_add(camera_pos, v, camera_pos);
+	camera_upload_view_matrix();
+}
+
+void Camera_right(float step)
+{
+	vec3 v;
+	glm_cross(camera_front, camera_up, v);
+	glm_normalize(v);
+	glm_vec3_scale(v, step, v);
+	glm_vec3_add(camera_pos, v, camera_pos);
+	camera_upload_view_matrix();
+}
+
+void Camera_update_yawpitch(float yaw, float pitch) {
+	vec3 f = {
+		cos(glm_rad(yaw)) * cos(glm_rad(pitch)),
+		sin(glm_rad(pitch)),
+		sin(glm_rad(yaw)) * cos(glm_rad(pitch)),
+	};
+	glm_normalize(f);
+	glm_vec3_copy(f, camera_front);
+
 	camera_upload_view_matrix();
 }
 
@@ -118,6 +168,12 @@ void Worldutil_vec3_to_opengl(vec3 v, vec3 dest)
 	dest[1] = v[2];
 	dest[2] = v[1];
 }
+
+float invlerp(float a, float b, float v)
+{
+	return (v - a) / (b - a);
+}
+
 
 int World_load_bsp(const char* map_name)
 {
@@ -149,6 +205,8 @@ int World_load_bsp(const char* map_name)
 	MEMSTATIC(edges);
 	MEMSTATIC(ledges);
 	MEMSTATIC(models);
+
+	MEMSTATIC(face_uv2s);
 
 	// entities
 	fseek(f, header.entities.offset, SEEK_SET);
@@ -243,10 +301,12 @@ int World_load_bsp(const char* map_name)
 	fseek(f, header.faces.offset, SEEK_SET);
 	MEMCREATEARRAYLUMP(faces, sizeof(face_t), header.faces.size);
 	MEMREADLUMP(faces, f);
+	MEMCREATEARRAY(face_uv2s, sizeof(vec2*), faces.size);
+	memset(face_uv2s.data, 0, face_uv2s.size * sizeof(vec2*)); // set all to NULL
 
 	// lightmaps
 	fseek(f, header.lightmaps.offset, SEEK_SET);
-	MEMCREATEARRAYLUMP(lightmaps, sizeof(u_char), header.lightmaps.size);
+	MEMCREATEARRAYLUMP(lightmaps, sizeof(uint8_t), header.lightmaps.size);
 	MEMREADLUMP(lightmaps, f);
 
 	// clip nodes
@@ -261,7 +321,7 @@ int World_load_bsp(const char* map_name)
 
 	// face list
 	fseek(f, header.lface.offset, SEEK_SET);
-	MEMCREATEARRAYLUMP(lface, sizeof(u_short), header.lface.size);
+	MEMCREATEARRAYLUMP(lface, sizeof(uint16_t), header.lface.size);
 	MEMREADLUMP(lface, f);
 
 	// edges
@@ -282,7 +342,16 @@ int World_load_bsp(const char* map_name)
 
 	MEMCREATEARRAY(world_models, sizeof(world_model_t), models.size);
 
+	MEMSTATIC(lightmap_rects);
+	MEMCREATEDYNAMICARRAY(lightmap_rects, stbrp_rect);
+	uint32_t lightmap_rects_size = 0;
+
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
+
+	typedef struct {
+		uint32_t triangle[3];
+		uint32_t face;
+	} vertex_item_con;
 
 	for (uint32_t i = 0; i < models.size; i++) {
 		model_t* model = MEMARRAYINDEXPTR(models, model_t, i);
@@ -291,11 +360,6 @@ int World_load_bsp(const char* map_name)
 		MEM(wmodel->meshes);
 		MEMCREATEARRAY(wmodel->meshes, sizeof(world_mesh_t), world_textures.size);
 		//MEMCREATEARRAY(wmodel->meshes, sizeof(world_mesh_t), 1);
-
-		typedef struct {
-			uint32_t triangle[3];
-			uint32_t face;
-		} vertex_item_con;
 
 		for (uint32_t j = 0; j < wmodel->meshes.size; j++) {
 			world_mesh_t* m = MEMARRAYINDEXPTR(wmodel->meshes, world_mesh_t, j);
@@ -310,6 +374,7 @@ int World_load_bsp(const char* map_name)
 			face_t* f = MEMARRAYINDEXPTR(faces, face_t, model->face_id + j);
 			surface_t* surf = MEMARRAYINDEXPTR(surface, surface_t, f->texinfo_id);
 			world_mesh_t* mesh = MEMARRAYINDEXPTR(wmodel->meshes, world_mesh_t, surf->texture_id);
+			world_texture_t* tex = mesh->texture;
 
 			void* ledge;
 			if (header.version == 29) {
@@ -319,22 +384,92 @@ int World_load_bsp(const char* map_name)
 				ledge = MEMARRAYINDEXPTR(ledges, int, f->first_edge);
 			}
 
-			// triangulate
+#define VECS pos
+#define AFTER
+#define CHOOSEEDGE(iii, cast)\
+			edge = ((cast*)ledge)[iii];\
+			if (edge >= 0)\
+				VECS = MEMARRAYINDEXPTR(edges, edge_t, edge)->vertex[0];\
+			else\
+				VECS = MEMARRAYINDEXPTR(edges, edge_t, -edge)->vertex[1];\
+			AFTER
 
+			// find lightmap uv
+			if (f->lightmap != -1) {
+				vec2 uv_min = { FLT_MAX, FLT_MAX };
+				vec2 uv_max = { -FLT_MAX, -FLT_MAX };
+
+				vec2* uv2s = (vec2*)malloc(sizeof(vec2) * f->edge_count);
+
+				for (uint32_t k = 0; k < f->edge_count; k++) {
+					int edge;
+					uint32_t pos;
+
+					if (header.version == 29) {
+						CHOOSEEDGE(k, short);
+					}
+					else {
+						CHOOSEEDGE(k, int);
+					}
+					vec3* vpos = MEMARRAYINDEXPTR(vertices, vec3, pos);
+
+					vec2 uv = {
+						glm_vec3_dot(*vpos, surf->vectorS) + surf->distS,
+						glm_vec3_dot(*vpos, surf->vectorT) + surf->distT,
+					};
+
+					glm_vec2_copy(uv, uv2s[k]);
+
+					if (uv[0] < uv_min[0]) uv_min[0] = uv[0];
+					if (uv[1] < uv_min[1]) uv_min[1] = uv[1];
+					if (uv[0] > uv_max[0]) uv_max[0] = uv[0];
+					if (uv[1] > uv_max[1]) uv_max[1] = uv[1];
+				}
+
+				// snap uv (16 unit)
+				ivec2 snap_min, snap_max;
+				snap_min[0] = floor(uv_min[0] / 16.0f);
+				snap_min[1] = floor(uv_min[1] / 16.0f);
+				snap_max[0] = ceil(uv_max[0] / 16.0f);
+				snap_max[1] = ceil(uv_max[1] / 16.0f);
+
+				for (uint32_t k = 0; k < f->edge_count; k++) {
+					vec2* uv = &uv2s[k];
+					(*uv)[0] = invlerp(snap_min[0] << 4, snap_max[0] << 4, (*uv)[0]);
+					(*uv)[1] = invlerp(snap_min[1] << 4, snap_max[1] << 4, (*uv)[1]);
+				}
+
+				*MEMARRAYINDEXPTR(face_uv2s, vec2*, model->face_id + j) = uv2s;
+
+				// how many lightmap are there ?
+				uint32_t lm = 0;
+				for (uint32_t k = 0; k < 4; k++) {
+					if (f->light[k] == 255) continue;
+					lm++;
+				}
+
+				stbrp_rect rect;
+				rect.id = model->face_id + j;
+				rect.w = ((snap_max[0] - snap_min[0]) + 1) * lm;
+				rect.h = (snap_max[1] - snap_min[1]) + 1;
+				printf("%d %d*%d %d\n", rect.id, rect.w, lm, rect.h);
+
+				MEMDYNAMICARRAYPUSH(lightmap_rects, stbrp_rect, lightmap_rects_size,
+					rect
+				);
+
+			}
+
+			// triangulate
+#define VECS vic.triangle[l]
+#define AFTER l++
 			uint32_t tri_count = f->edge_count - 2;
 			for (uint32_t k = 1; k <= tri_count; k++) {
 				int edge;
 				vertex_item_con vic;
 				vic.face = model->face_id + j;
-				
+
 				uint32_t l = 0;
-#define CHOOSEEDGE(iii, cast)\
-				edge = ((cast*)ledge)[iii];\
-				if (edge >= 0)\
-					vic.triangle[l] = MEMARRAYINDEXPTR(edges, edge_t, edge)->vertex[0];\
-				else\
-					vic.triangle[l] = MEMARRAYINDEXPTR(edges, edge_t, -edge)->vertex[1];\
-				l++
 
 				if (header.version == 29) {
 					CHOOSEEDGE(0, short);
@@ -346,10 +481,97 @@ int World_load_bsp(const char* map_name)
 					CHOOSEEDGE(k, int);
 					CHOOSEEDGE(k + 1, int);
 				}
-
+#undef CHOOSEEDGE
+#undef VECS
+#undef AFTER
 				MEMDYNAMICARRAYPUSH(mesh->vertex_items, vertex_item_con, mesh->vi_cursor, vic);
 			}
 		}
+	}
+
+	// create lightmap textures
+
+	// pack them first
+	stbrp_context ctx;
+	stbrp_node* packnodes = (stbrp_node*)malloc(sizeof(stbrp_node) * 1024 * 2);
+	stbrp_init_target(&ctx, 1024, 1024, packnodes, 1024 * 2);
+	stbrp_pack_rects(&ctx, lightmap_rects.data, lightmap_rects_size);
+	free(packnodes);
+
+	rgb_t* lightmap_bitmap = (rgb_t*)malloc(1024 * 1024 * sizeof(rgb_t));
+
+	for (uint32_t i = 0; i < lightmap_rects_size; i++) {
+		stbrp_rect* rect = MEMARRAYINDEXPTR(lightmap_rects, stbrp_rect, i);
+		face_t* face = MEMARRAYINDEXPTR(faces, face_t, rect->id);
+		const uint8_t* lightmapdata = ((uint8_t*)lightmaps.data + face->lightmap);
+
+		vec2* uv2s = *MEMARRAYINDEXPTR(face_uv2s, vec2*, rect->id);
+		for (uint32_t k = 0; k < face->edge_count; k++) {
+			vec2* uv = &uv2s[k];
+
+			vec2 lpos = {
+				(rect->x + 0.5f) / 1024.0f,
+				(rect->y + 0.5f) / 1024.0f
+			};
+
+			vec2 fsize = {
+				rect->w / 1024.0f,
+				rect->h / 1024.0f
+			};
+
+			(*uv)[0] = ((*uv)[0] * fsize[0]) + lpos[0];
+			(*uv)[1] = ((*uv)[1] * fsize[1]) + lpos[1];
+		}
+
+		//if (face->lightmap == -1) continue;
+
+		// count lightmaps
+		uint32_t lm = 0;
+		for (uint32_t k = 0; k < 4; k++) {
+			if (face->light[k] == 255) continue;
+			lm++;
+		}
+
+		if (lm == 0)
+			continue; // <- impossible
+
+		const uint32_t real_width = (rect->w / lm);
+		uint32_t cc = 0;
+
+		// paint lightmaps
+		for (uint32_t k = 0; k < 4; k++) {
+			if (face->light[k] == 255) continue;
+
+			for (uint32_t y = 0; y < rect->h; y++) {
+				for (uint32_t x = 0; x < real_width; x++) {
+#define INDEXWITHSTRIDE (real_width * k + rect->x + x) + (y + rect->y) * 1024
+					rgb_t C = (rgb_t){ lightmapdata[cc++] ,lightmapdata[cc++] ,lightmapdata[cc++] };
+					if (k == 0) {
+						memcpy(&lightmap_bitmap[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
+					}
+					else {
+						lightmap_bitmap[INDEXWITHSTRIDE] = (rgb_t){ 0xff, 0x00, 0xff };
+						cc += 3;
+					}
+					//char name[1024];
+					//sprintf(name, "lightmap%d.png", cc);
+					//stbi_write_png(name, 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
+				}
+			}
+		}
+		//break;
+	}
+
+	Texture_new(&lightmap_texture);
+	Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 3);
+	stbi_write_png("lightmap.png", 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
+	free(lightmap_bitmap);
+	//T ODO : RGB
+
+
+	for (uint32_t i = 0; i < models.size; i++) {
+		model_t* model = MEMARRAYINDEXPTR(models, model_t, i);
+		world_model_t* wmodel = MEMARRAYINDEXPTR(world_models, world_model_t, i);
 
 		for (uint32_t j = 0; j < wmodel->meshes.size; j++) {
 			world_mesh_t* mesh = MEMARRAYINDEXPTR(wmodel->meshes, world_mesh_t, j);
@@ -371,6 +593,8 @@ int World_load_bsp(const char* map_name)
 				tscale[0] = 1.0f / tex->texture.width;
 				tscale[1] = 1.0f / tex->texture.height;
 
+				vec2* uv2s = *MEMARRAYINDEXPTR(face_uv2s, vec2*, vidx->face);
+
 				for (uint32_t l = 0; l < 3; l++) {
 					world_vertex_item_t vi;
 					vec3* v0 = MEMARRAYINDEXPTR(vertices, vec3, vidx->triangle[l]);
@@ -388,6 +612,7 @@ int World_load_bsp(const char* map_name)
 					Worldutil_vec3_to_opengl(*v0, vi.vertex);
 					Worldutil_vec3_to_opengl(*normal, vi.normal);
 					glm_vec2_copy(uv0, vi.uv_texture);
+					glm_vec2_copy(uv2s[k], vi.uv_lightmap);
 					*MEMARRAYINDEXPTR(items, world_vertex_item_t, add_c++) = vi;
 				}
 			}
@@ -426,6 +651,14 @@ int World_load_bsp(const char* map_name)
 
 		///////////
 	}
+
+	// free face uv2 arrays
+	for (uint32_t i = 0; i < face_uv2s.size; i++) {
+		vec2* uv2s = *MEMARRAYINDEXPTR(face_uv2s, vec2*, i);
+		if (uv2s != NULL)
+			free(uv2s);
+	}
+	Mem_release(&face_uv2s);
 
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
 

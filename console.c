@@ -15,7 +15,11 @@ float console_target = 1.0f;
 texture_t console_bg;
 font_t hasklig;
 
+concommand_t* cmd_root;
+
 int Con_init() {
+	cmd_root = NULL;
+
 	Texture_new(&console_bg);
 	if (Texture_load_from_file(&console_bg, ASSET("core/console.png")) != ERR_OK) {
 		return ERR_CANNOT_LOAD_RESOURCE;
@@ -26,9 +30,40 @@ int Con_init() {
 	Con_resize_console(Game_win_get_width(), Game_win_get_height());
 }
 
+void Con_register_cmd(concommand_t* cmd)
+{
+	if (cmd_root == NULL) {
+		// ah yes im first
+		cmd_root = cmd;
+		cmd_root->next = NULL;
+	}
+	else {
+		concommand_t* cursor = cmd_root;
+		while (cursor->next) {
+			if (String_MATCH(cursor->name, cmd->name)) {
+				Con_printf("command \"%s\" is already exist bro", cursor->name);
+				return;
+			}
+			cursor = cursor->next;
+		}
+		cursor->next = cmd;
+	}
+}
+
+concommand_t* Con_find(const char* cmd_name) {
+	concommand_t* cursor = cmd_root;
+	while (cursor) {
+		if (String_MATCH(cursor->name, cmd_name))
+			return cursor;
+		cursor = cursor->next;
+	}
+	return NULL;
+}
+
 // printf but for console
 void Con_printf(const char* fmt, ...) // unlimit args hehe
 {
+	return; // todo : fix this
 	va_list arg;
 	char lineprint[4096];
 
@@ -59,6 +94,7 @@ void Con_printf(const char* fmt, ...) // unlimit args hehe
 		}
 
 		log[console_line_cursor * console_line_charcters + x] = *cursor;
+		cursor++;
 	}
 	NEWLINE;
 }
@@ -69,7 +105,7 @@ void Con_draw_console()
 
 	if (console_target < console_show)
 		console_show -= Game_delta();
-	else 
+	else
 		console_show += Game_delta();
 
 	int height = Game_win_get_height();
@@ -127,4 +163,59 @@ int Con_resize_console(int width, int height) {
 void Con_make_showing(bool_t yes)
 {
 	console_target = yes ? 1.0f : 0.0f;
+}
+
+void Con_load_cfg() {
+	FILE* f = fopen(ASSET("default.cfg"), "r");
+	if (!f) return; // dont care
+
+	char line[512];
+	while (fgets(line, 512, f)) {
+		if (line[0] == '#') continue; // comment
+
+		// execute
+		Con_execute(line);
+	}
+}
+
+void Con_execute(char* line) {
+	char* cursor = line;
+	char* cmd = line;
+	char* arg = NULL;
+	int argi = 0;
+
+	while (*cursor) {
+		if (*cursor == ' ') {
+			*cursor = 0x00;
+			arg = cursor + 1;
+
+			// first
+			concommand_t* found = Con_find(cmd);
+			if (found) {
+				// cmd
+				(*found->run)();
+			}
+			else {
+				// cvar ?
+				cvar_t* found = Cvar_find(cmd);
+				if (!found) {
+					Con_printf("command or cvar \"%s\" is not exist bro", cmd);
+				}
+				else {
+					// cvar
+					Cvar_seto(found, arg);
+				}
+			}
+
+			break;
+		}
+		cursor++;
+
+		if (*cursor == '\n') {
+			*cursor = 0x00;
+			break;
+		}
+	}
+
+	int a = 0;
 }

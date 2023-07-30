@@ -3,7 +3,7 @@
 
 #include "maindef.h"
 
-#include "stb_truetype.h"
+#include "ext/stb_truetype.h"
 
 typedef struct {
 	float height;

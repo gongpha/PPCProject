@@ -4,6 +4,9 @@
 #include "maindef.h"
 
 typedef float color_t[4];
+typedef struct {
+	uint8_t r; uint8_t g; uint8_t b;
+} rgb_t;
 
 void Color_make(color_t col, float r, float g, float b, float a);
 void Color_copy(color_t src, color_t dest);

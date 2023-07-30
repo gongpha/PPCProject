@@ -3,7 +3,7 @@
 // linked list
 static cvar_t* cvar_root = NULL;
 
-void cvar_register(cvar_t* cvar) {
+void Cvar_register(cvar_t* cvar) {
 	if (cvar_root == NULL) {
 		// ah yes im first
 		cvar_root = cvar;
@@ -25,7 +25,7 @@ void cvar_register(cvar_t* cvar) {
 	cvar->num = strtod(cvar->def_value, NULL);
 }
 
-cvar_t* cvar_find(const char* cvar_name) {
+cvar_t* Cvar_find(const char* cvar_name) {
 	cvar_t* cursor = cvar_root;
 	while (cursor) {
 		if (String_MATCH(cursor->name, cvar_name))
@@ -35,9 +35,13 @@ cvar_t* cvar_find(const char* cvar_name) {
 	return NULL;
 }
 
-number_t cvar_read_num(const char* cvar_name, number_t def) {
-	cvar_t* found = cvar_find(cvar_name);
+number_t Cvar_read_num(const char* cvar_name, number_t def) {
+	cvar_t* found = Cvar_find(cvar_name);
 	if (!found) return def;
 
 	return found->num;
+}
+
+void Cvar_seto(cvar_t* cvar, const char* value)
+{
 }

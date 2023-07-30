@@ -22,6 +22,7 @@
 
 #include "world.h"
 
+#include "input.h"
 #include "game.h"
 
 #endif

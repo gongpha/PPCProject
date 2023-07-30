@@ -7,11 +7,6 @@
 #define NULL (void*)0x00000000
 typedef float number_t;
 
-typedef float scalar_t;
-typedef unsigned long u_long;
-typedef unsigned short u_short;
-typedef unsigned char u_char;
-
 #define ASSET(path) ("assets/" path)
 
 /* fake boolean lmao */

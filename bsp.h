@@ -60,32 +60,32 @@ typedef struct
 typedef struct
 {
 	uint32_t    plane_id; // quake : long
-	u_short front;
-	u_short back;
+	uint16_t front;
+	uint16_t back;
 	bboxshort_t box;
-	u_short face_id;
-	u_short face_num;
+	uint16_t face_id;
+	uint16_t face_num;
 } bspnode_t;
 
 typedef struct
 {
 	vec3   vectorS;
-	scalar_t distS;
+	float distS;
 	vec3   vectorT;
-	scalar_t distT;
+	float distT;
 	uint32_t   texture_id; // miptex id
 	uint32_t   animated; // 0, all the time
 } surface_t; // tex info
 
 typedef struct
 {
-	u_short plane_id;
-	u_short side;
+	uint16_t plane_id;
+	uint16_t side;
 	uint32_t first_edge;
-	u_short edge_count;
-	u_short texinfo_id;
-	u_char light[4];
-	uint32_t lightmap;
+	uint16_t edge_count;
+	uint16_t texinfo_id;
+	uint8_t light[4];
+	int32_t lightmap;
 } face_t;
 
 typedef struct
@@ -100,8 +100,8 @@ typedef struct
 	int32_t type;
 	int32_t vislist;
 	bboxshort_t bound;
-	u_short lface_id;
-	u_short lface_num;
+	uint16_t lface_id;
+	uint16_t lface_num;
 	uint8_t ambients[4];
 } dleaf_t;
 

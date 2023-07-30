@@ -21,14 +21,17 @@ GLFWwindow* window;
 mat4 projection;
 
 void Game_init() {
-	cvar_register(&win_width);
-	cvar_register(&win_height);
-	cvar_register(&fps_max);
+	Cvar_register(&win_width);
+	Cvar_register(&win_height);
+	Cvar_register(&fps_max);
 }
 
 void init_modules() {
 	Con_init();
+	Input_init();
 	World_init();
+
+	Con_load_cfg();
 }
 
 // just printf . . .
@@ -123,10 +126,8 @@ int Game_start() {
 	init_modules();
 	Game_begin();
 
-	glEnable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glfwSetCursorPosCallback(window, Input_process_mouse);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	framebuffer_size_callback(window, win_width.num, win_height.num);
 
@@ -141,7 +142,18 @@ double last_timer = 0;
 double delta_time = 0;
 
 void Game_frame() {
+	// 3D
+	glCullFace(GL_FRONT);
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
 	World_draw();
+
+	// 2D
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
 	Con_draw_console();
 }
 
@@ -161,6 +173,9 @@ int Game_loop()
 			// CLEAR YO MAMA
 			glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			Input_process(window);
+
 			Game_frame();
 			glfwSwapBuffers(window);
 

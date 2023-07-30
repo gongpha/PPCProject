@@ -46,7 +46,8 @@ int Mem_create_array(memory_t* m, size_t size_each, size_t num) {
 }
 
 void Mem_release(memory_t * m) {
-	if (!m->data) return;
+	if (!m->data)
+		return;
 	size_t s = m->size * m->size_each;
 	if (s == 0) return;
 	free(m->data);

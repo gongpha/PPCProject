@@ -14,9 +14,11 @@ typedef struct cvar_s {
 	struct cvar_t* next;
 } cvar_t;
 
-void cvar_register(cvar_t* cvar);
+void Cvar_register(cvar_t* cvar);
 
-cvar_t* cvar_find(const char* cvar_name);
-number_t cvar_read_num(const char* cvar_name, number_t def);
+cvar_t* Cvar_find(const char* cvar_name);
+number_t Cvar_read_num(const char* cvar_name, number_t def);
+
+void Cvar_seto(cvar_t* cvar, const char* value);
 
 #endif

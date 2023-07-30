@@ -11,6 +11,9 @@ void World_resize_viewport(int width, int height);
 
 void Camera_set_position(vec3 v);
 void Camera_translate(vec3 v);
+void Camera_forward(float step);
+void Camera_right(float step);
+void Camera_update_yawpitch(float yaw, float pitch);
 
 void Worldutil_vec3_to_opengl(vec3 v, vec3 dest);
 

@@ -2,7 +2,7 @@
 #define FONTTEXTURE_SIZE 512
 
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
+#include "ext/stb_truetype.h"
 
 static int initialized = 0;
 SHADER_STATIC(shader);
