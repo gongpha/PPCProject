@@ -81,7 +81,7 @@ void World_draw()
 			glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
 
 			//printf("%d\n", mesh->vi_cursor);
-			glDrawArrays(GL_TRIANGLES, 0, mesh->vi_cursor);
+			glDrawArrays(GL_TRIANGLES, 0, mesh->fi_cursor);
 
 			//break;
 		}
@@ -192,6 +192,13 @@ int World_load_bsp(const char* map_name)
 		return ERR_CANNOT_OPEN;
 	}
 
+	typedef struct {
+		uint32_t* vertices;
+		vec2* uv;
+		vec2* uv2;
+		uint32_t face;
+	} face_uv;
+
 	MEMSTATIC(planes);
 	MEMSTATIC(vertices);
 	MEMSTATIC(vislist);
@@ -206,7 +213,7 @@ int World_load_bsp(const char* map_name)
 	MEMSTATIC(ledges);
 	MEMSTATIC(models);
 
-	MEMSTATIC(face_uv2s);
+	MEMSTATIC(face_uvs);
 
 	// entities
 	fseek(f, header.entities.offset, SEEK_SET);
@@ -301,8 +308,8 @@ int World_load_bsp(const char* map_name)
 	fseek(f, header.faces.offset, SEEK_SET);
 	MEMCREATEARRAYLUMP(faces, sizeof(face_t), header.faces.size);
 	MEMREADLUMP(faces, f);
-	MEMCREATEARRAY(face_uv2s, sizeof(vec2*), faces.size);
-	memset(face_uv2s.data, 0, face_uv2s.size * sizeof(vec2*)); // set all to NULL
+	MEMCREATEARRAY(face_uvs, sizeof(face_uv), faces.size);
+	memset(face_uvs.data, 0, face_uvs.size * sizeof(face_uv)); // set all to NULL
 
 	// lightmaps
 	fseek(f, header.lightmaps.offset, SEEK_SET);
@@ -348,11 +355,6 @@ int World_load_bsp(const char* map_name)
 
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
 
-	typedef struct {
-		uint32_t triangle[3];
-		uint32_t face;
-	} vertex_item_con;
-
 	for (uint32_t i = 0; i < models.size; i++) {
 		model_t* model = MEMARRAYINDEXPTR(models, model_t, i);
 		world_model_t* wmodel = MEMARRAYINDEXPTR(world_models, world_model_t, i);
@@ -364,9 +366,9 @@ int World_load_bsp(const char* map_name)
 		for (uint32_t j = 0; j < wmodel->meshes.size; j++) {
 			world_mesh_t* m = MEMARRAYINDEXPTR(wmodel->meshes, world_mesh_t, j);
 
-			MEM(m->vertex_items);
-			MEMCREATEDYNAMICARRAY(m->vertex_items, vertex_item_con);
-			m->vi_cursor = 0;
+			MEM(m->face_items);
+			MEMCREATEDYNAMICARRAY(m->face_items, uint32_t);
+			m->fi_cursor = 0;
 			m->texture = MEMARRAYINDEXPTR(world_textures, world_texture_t, j);
 		}
 
@@ -385,61 +387,77 @@ int World_load_bsp(const char* map_name)
 			}
 
 #define VECS pos
-#define AFTER
-#define CHOOSEEDGE(iii, cast)\
+#define CHOOSEEDGE(iii, cast) {\
 			edge = ((cast*)ledge)[iii];\
 			if (edge >= 0)\
 				VECS = MEMARRAYINDEXPTR(edges, edge_t, edge)->vertex[0];\
 			else\
 				VECS = MEMARRAYINDEXPTR(edges, edge_t, -edge)->vertex[1];\
-			AFTER
+			}
 
 			// find lightmap uv
+
+			vec2 uv_min = { FLT_MAX, FLT_MAX };
+			vec2 uv_max = { -FLT_MAX, -FLT_MAX };
+
+			face_uv facei;
+			facei.uv = malloc(sizeof(vec2) * f->edge_count);
+			facei.uv2 = malloc(sizeof(vec2) * f->edge_count);
+			facei.vertices = malloc(sizeof(uint32_t) * f->edge_count);
+			facei.face = model->face_id + j;
+
+			vec2 tscale;
+			tscale[0] = 1.0f / tex->texture.width;
+			tscale[1] = 1.0f / tex->texture.height;
+
+			for (uint32_t k = 0; k < f->edge_count; k++) {
+				int edge;
+				uint32_t pos;
+
+				if (header.version == 29)
+					CHOOSEEDGE(k, short)
+				else
+					CHOOSEEDGE(k, int)
+					;
+				vec3* vpos = MEMARRAYINDEXPTR(vertices, vec3, pos);
+
+				vec2 uv0 = {
+					glm_dot(*vpos, surf->vectorS) * tscale[0] +
+					surf->distS / tex->texture.width
+					,
+					glm_dot(*vpos, surf->vectorT) * tscale[1] +
+					surf->distT / tex->texture.height
+				};
+
+				vec2 uv2 = {
+					glm_vec3_dot(*vpos, surf->vectorS) + surf->distS,
+					glm_vec3_dot(*vpos, surf->vectorT) + surf->distT,
+				};
+
+				glm_vec2_copy(uv0, facei.uv[k]);
+				glm_vec2_copy(uv2, facei.uv2[k]);
+				facei.vertices[k] = pos;
+
+				if (uv2[0] < uv_min[0]) uv_min[0] = uv2[0];
+				if (uv2[1] < uv_min[1]) uv_min[1] = uv2[1];
+				if (uv2[0] > uv_max[0]) uv_max[0] = uv2[0];
+				if (uv2[1] > uv_max[1]) uv_max[1] = uv2[1];
+			}
+
+			// snap uv (16 unit)
+			ivec2 snap_min, snap_max;
+			snap_min[0] = floor(uv_min[0] / 16.0f);
+			snap_min[1] = floor(uv_min[1] / 16.0f);
+			snap_max[0] = ceil(uv_max[0] / 16.0f);
+			snap_max[1] = ceil(uv_max[1] / 16.0f);
+
+			for (uint32_t k = 0; k < f->edge_count; k++) {
+				vec2* uv = &facei.uv2[k];
+				(*uv)[0] = invlerp(snap_min[0] << 4, snap_max[0] << 4, (*uv)[0]);
+				(*uv)[1] = invlerp(snap_min[1] << 4, snap_max[1] << 4, (*uv)[1]);
+			}
+
 			if (f->lightmap != -1) {
-				vec2 uv_min = { FLT_MAX, FLT_MAX };
-				vec2 uv_max = { -FLT_MAX, -FLT_MAX };
-
-				vec2* uv2s = (vec2*)malloc(sizeof(vec2) * f->edge_count);
-
-				for (uint32_t k = 0; k < f->edge_count; k++) {
-					int edge;
-					uint32_t pos;
-
-					if (header.version == 29) {
-						CHOOSEEDGE(k, short);
-					}
-					else {
-						CHOOSEEDGE(k, int);
-					}
-					vec3* vpos = MEMARRAYINDEXPTR(vertices, vec3, pos);
-
-					vec2 uv = {
-						glm_vec3_dot(*vpos, surf->vectorS) + surf->distS,
-						glm_vec3_dot(*vpos, surf->vectorT) + surf->distT,
-					};
-
-					glm_vec2_copy(uv, uv2s[k]);
-
-					if (uv[0] < uv_min[0]) uv_min[0] = uv[0];
-					if (uv[1] < uv_min[1]) uv_min[1] = uv[1];
-					if (uv[0] > uv_max[0]) uv_max[0] = uv[0];
-					if (uv[1] > uv_max[1]) uv_max[1] = uv[1];
-				}
-
-				// snap uv (16 unit)
-				ivec2 snap_min, snap_max;
-				snap_min[0] = floor(uv_min[0] / 16.0f);
-				snap_min[1] = floor(uv_min[1] / 16.0f);
-				snap_max[0] = ceil(uv_max[0] / 16.0f);
-				snap_max[1] = ceil(uv_max[1] / 16.0f);
-
-				for (uint32_t k = 0; k < f->edge_count; k++) {
-					vec2* uv = &uv2s[k];
-					(*uv)[0] = invlerp(snap_min[0] << 4, snap_max[0] << 4, (*uv)[0]);
-					(*uv)[1] = invlerp(snap_min[1] << 4, snap_max[1] << 4, (*uv)[1]);
-				}
-
-				*MEMARRAYINDEXPTR(face_uv2s, vec2*, model->face_id + j) = uv2s;
 
 				// how many lightmap are there ?
 				uint32_t lm = 0;
@@ -452,40 +470,18 @@ int World_load_bsp(const char* map_name)
 				rect.id = model->face_id + j;
 				rect.w = ((snap_max[0] - snap_min[0]) + 1) * lm;
 				rect.h = (snap_max[1] - snap_min[1]) + 1;
-				printf("%d %d*%d %d\n", rect.id, rect.w, lm, rect.h);
+				//printf("%d %d*%d %d\n", rect.id, rect.w, lm, rect.h);
 
 				MEMDYNAMICARRAYPUSH(lightmap_rects, stbrp_rect, lightmap_rects_size,
 					rect
 				);
-
 			}
 
-			// triangulate
-#define VECS vic.triangle[l]
-#define AFTER l++
-			uint32_t tri_count = f->edge_count - 2;
-			for (uint32_t k = 1; k <= tri_count; k++) {
-				int edge;
-				vertex_item_con vic;
-				vic.face = model->face_id + j;
+			*MEMARRAYINDEXPTR(face_uvs, face_uv, model->face_id + j) = facei;
+			MEMDYNAMICARRAYPUSH(mesh->face_items, uint32_t, mesh->fi_cursor, model->face_id + j);
 
-				uint32_t l = 0;
-
-				if (header.version == 29) {
-					CHOOSEEDGE(0, short);
-					CHOOSEEDGE(k, short);
-					CHOOSEEDGE(k + 1, short);
-				}
-				else {
-					CHOOSEEDGE(0, int);
-					CHOOSEEDGE(k, int);
-					CHOOSEEDGE(k + 1, int);
-				}
 #undef CHOOSEEDGE
 #undef VECS
-#undef AFTER
-				MEMDYNAMICARRAYPUSH(mesh->vertex_items, vertex_item_con, mesh->vi_cursor, vic);
-			}
 		}
 	}
 
@@ -505,18 +501,19 @@ int World_load_bsp(const char* map_name)
 		face_t* face = MEMARRAYINDEXPTR(faces, face_t, rect->id);
 		const uint8_t* lightmapdata = ((uint8_t*)lightmaps.data + face->lightmap);
 
-		vec2* uv2s = *MEMARRAYINDEXPTR(face_uv2s, vec2*, rect->id);
+		face_uv* fuv = MEMARRAYINDEXPTR(face_uvs, face_uv, rect->id);
+		vec2* uv2s = fuv->uv2;
 		for (uint32_t k = 0; k < face->edge_count; k++) {
 			vec2* uv = &uv2s[k];
 
 			vec2 lpos = {
-				(rect->x + 0.5f) / 1024.0f,
-				(rect->y + 0.5f) / 1024.0f
+				((float)rect->x + 0.5f) / 1024.0f,
+				((float)rect->y + 0.5f) / 1024.0f
 			};
 
 			vec2 fsize = {
-				rect->w / 1024.0f,
-				rect->h / 1024.0f
+				(rect->w - 1) / 1024.0f,
+				(rect->h - 1) / 1024.0f
 			};
 
 			(*uv)[0] = ((*uv)[0] * fsize[0]) + lpos[0];
@@ -564,9 +561,8 @@ int World_load_bsp(const char* map_name)
 
 	Texture_new(&lightmap_texture);
 	Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 3);
-	stbi_write_png("lightmap.png", 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
+	//stbi_write_png("lightmap.png", 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
 	free(lightmap_bitmap);
-	//T ODO : RGB
 
 
 	for (uint32_t i = 0; i < models.size; i++) {
@@ -576,48 +572,48 @@ int World_load_bsp(const char* map_name)
 		for (uint32_t j = 0; j < wmodel->meshes.size; j++) {
 			world_mesh_t* mesh = MEMARRAYINDEXPTR(wmodel->meshes, world_mesh_t, j);
 
+			if (mesh->fi_cursor == 0) continue;
+
 			MEMSTATIC(items);
-			MEMCREATEARRAY(items, sizeof(world_vertex_item_t), mesh->vi_cursor * 3);
+			MEMCREATEDYNAMICARRAY(items, world_vertex_item_t);
+			//MEMCREATEARRAY(items, sizeof(world_vertex_item_t), (mesh->fi_cursor - 2) * 3);
 			uint32_t add_c = 0;
 
-			for (uint32_t k = 0; k < mesh->vi_cursor; k++) {
-				vertex_item_con* vidx = MEMARRAYINDEXPTR(mesh->vertex_items, vertex_item_con, k);
+			for (uint32_t k = 0; k < mesh->fi_cursor; k++) {
+				uint32_t fidx = *MEMARRAYINDEXPTR(mesh->face_items, uint32_t, k);
+				face_uv* vidx = MEMARRAYINDEXPTR(face_uvs, face_uv, fidx);
 
 				face_t* f = MEMARRAYINDEXPTR(faces, face_t, vidx->face);
 				surface_t* surf = MEMARRAYINDEXPTR(surface, surface_t, f->texinfo_id);
+				vec3* normal = MEMARRAYINDEXPTR(planes, plane_t, f->plane_id)->normal;
 
-				world_mesh_t* mesh = MEMARRAYINDEXPTR(wmodel->meshes, world_mesh_t, surf->texture_id);
 				world_texture_t* tex = mesh->texture;
 
-				vec2 tscale;
-				tscale[0] = 1.0f / tex->texture.width;
-				tscale[1] = 1.0f / tex->texture.height;
+				world_vertex_item_t vi;
+				uint32_t vi0;
+				vec3* v0;
 
-				vec2* uv2s = *MEMARRAYINDEXPTR(face_uv2s, vec2*, vidx->face);
+				for (uint32_t l = 0; l < f->edge_count - 2; l++) {
+#define ADDV(i)\
+					vi0 = vidx->vertices[i];\
+					v0 = MEMARRAYINDEXPTR(vertices, vec3, vi0);\
+					Worldutil_vec3_to_opengl(*v0, vi.vertex);\
+					Worldutil_vec3_to_opengl(*normal, vi.normal);\
+					glm_vec2_copy(vidx->uv[i], vi.uv_texture);\
+					glm_vec2_copy(vidx->uv2[i], vi.uv_lightmap);\
+					MEMDYNAMICARRAYPUSH(items, world_vertex_item_t, add_c, vi)
 
-				for (uint32_t l = 0; l < 3; l++) {
-					world_vertex_item_t vi;
-					vec3* v0 = MEMARRAYINDEXPTR(vertices, vec3, vidx->triangle[l]);
-
-					vec2 uv0 = {
-						glm_dot(*v0, surf->vectorS) * tscale[0] +
-						surf->distS / tex->texture.width
-						,
-						glm_dot(*v0, surf->vectorT) * tscale[1] +
-						surf->distT / tex->texture.height
-					};
-
-					vec3* normal = MEMARRAYINDEXPTR(planes, plane_t, f->plane_id)->normal;
-
-					Worldutil_vec3_to_opengl(*v0, vi.vertex);
-					Worldutil_vec3_to_opengl(*normal, vi.normal);
-					glm_vec2_copy(uv0, vi.uv_texture);
-					glm_vec2_copy(uv2s[k], vi.uv_lightmap);
-					*MEMARRAYINDEXPTR(items, world_vertex_item_t, add_c++) = vi;
+					ADDV(0);
+					ADDV(l + 1);
+					ADDV(l + 2);
 				}
+				free(vidx->uv);
+				free(vidx->uv2);
+				free(vidx->vertices);
 			}
 
-			Mem_replace(&items, &mesh->vertex_items);
+			MEMDYNAMICARRAYFIXSIZE(items, world_vertex_item_t, add_c);
+			Mem_replace(&items, &mesh->face_items);
 
 			if (add_c == 0) {
 				// empty mesh
@@ -626,13 +622,13 @@ int World_load_bsp(const char* map_name)
 				continue;
 			}
 
-			mesh->vi_cursor *= 3;
+			mesh->fi_cursor = add_c;
 
 			glGenVertexArrays(1, &mesh->vao);
 			glGenBuffers(1, &mesh->vbo);
 			glBindVertexArray(mesh->vao);
 			glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-			glBufferData(GL_ARRAY_BUFFER, sizeof(world_vertex_item_t) * add_c, mesh->vertex_items.data, GL_STATIC_DRAW);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(world_vertex_item_t) * add_c, mesh->face_items.data, GL_STATIC_DRAW);
 
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(world_vertex_item_t), NULL);
@@ -643,7 +639,7 @@ int World_load_bsp(const char* map_name)
 			glEnableVertexAttribArray(3);
 			glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(world_vertex_item_t), (void*)(8 * sizeof(float)));
 
-			Mem_release(&mesh->vertex_items);
+			Mem_release(&mesh->face_items);
 		}
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -651,14 +647,7 @@ int World_load_bsp(const char* map_name)
 
 		///////////
 	}
-
-	// free face uv2 arrays
-	for (uint32_t i = 0; i < face_uv2s.size; i++) {
-		vec2* uv2s = *MEMARRAYINDEXPTR(face_uv2s, vec2*, i);
-		if (uv2s != NULL)
-			free(uv2s);
-	}
-	Mem_release(&face_uv2s);
+	Mem_release(&face_uvs);
 
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
 

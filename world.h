@@ -26,8 +26,8 @@ typedef struct {
 	GLint vao, vbo;
 	world_texture_t* texture;
 
-	memory_t vertex_items;
-	uint32_t vi_cursor;
+	memory_t face_items;
+	uint32_t fi_cursor;
 
 } world_mesh_t; // per texture
 

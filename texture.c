@@ -90,8 +90,11 @@ int Texture_from_data(
 	// gen opengl texture
 	glBindTexture(GL_TEXTURE_2D, texture->id);
 
+	texture->width = width;
+	texture->height = height;
+
 	GLint fmt = pixelfmt_to_glpixelformat[comp];
-	glTexImage2D(GL_TEXTURE_2D, 0, fmt, texture->width, texture->height, 0, fmt, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, fmt, width, height, 0, fmt, GL_UNSIGNED_BYTE, data);
 	//if (gen_mipmap)
 	//	glGenerateMipmap(GL_TEXTURE_2D);
 

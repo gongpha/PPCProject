@@ -102,5 +102,5 @@ void main()\
 {\
 	/*vec3 result = texture(lightmap, LightCoords).r * texture(tex, TexCoords).rgb;*/\
 	vec3 result = Normal * texture(lightmap, LightCoords).r;\
-	FragColor = vec4(vec3(texture(lightmap, LightCoords).r), 1.0);\
+	FragColor = vec4(texture(tex, LightCoords).xyz, 1.0);\
 }";

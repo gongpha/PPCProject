@@ -30,6 +30,7 @@ void Mem_replace(memory_t* from, memory_t* to);
 
 #define MEMCREATEDYNAMICARRAY(object, type) MEMCREATEARRAY(object, sizeof(type), 2)
 #define MEMDYNAMICARRAYPUSH(object, type, counter, item) { if (counter >= object.size) MEMCREATEARRAY(object, sizeof(type), object.size * 2); *MEMARRAYINDEXPTR(object, type, counter++) = item; }
+#define MEMDYNAMICARRAYFIXSIZE(object, type, counter) MEMCREATEARRAY(object, sizeof(type), counter)
 //#define MEMDYNAMICARRAYPUSHN(object, type, counter, n, items) { while (counter + (n - 1) >= object.size) MEMCREATEARRAY(object, sizeof(type), object.size * 2); memcpy(MEMARRAYINDEXPTR(object, type, counter), items, n); counter += n; }
 
 #endif
