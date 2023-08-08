@@ -7,7 +7,15 @@
 int World_load_bsp(const char* map_name);
 void World_clear();
 void World_draw();
+void World_physic_step();
 void World_resize_viewport(int width, int height);
+
+typedef struct {
+	bool_t hit;
+	vec3 normal;
+	vec3 point;
+} raycast_result_t;
+void World_raycast(vec3 from, vec3 to, raycast_result_t* result);
 
 void Camera_set_position(vec3 v);
 void Camera_translate(vec3 v);
@@ -15,7 +23,17 @@ void Camera_forward(float step);
 void Camera_right(float step);
 void Camera_update_yawpitch(float yaw, float pitch);
 
+void Player_forward(float step);
+void Player_right(float step);
+
 void Worldutil_vec3_to_opengl(vec3 v, vec3 dest);
+
+typedef vec4 worldplane_t;
+
+// like quake engine
+// leaf contents
+#define	CONTENTS_EMPTY -1
+#define	CONTENTS_SOLID -2
 
 typedef struct {
 	char name[16];
@@ -32,15 +50,23 @@ typedef struct {
 } world_mesh_t; // per texture
 
 typedef struct {
-	memory_t meshes;
-} world_model_t;
-
-typedef struct {
 	vec3 vertex;
 	vec3 normal;
 	vec2 uv_texture;
 	vec2 uv_lightmap;
 } world_vertex_item_t;
+
+// similar to clipnode_t
+typedef struct {
+	worldplane_t plane;
+	int32_t front; // index of clipnodes
+	int32_t back; // index of clipnodes
+} world_clipnode_t;
+
+typedef struct {
+	memory_t meshes;
+	int32_t first_node; // index of clipnodes
+} world_model_t;
 
 ////////////
 

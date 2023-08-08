@@ -9,6 +9,8 @@ MEMSTATIC(world_entities_src);
 MEMSTATIC(world_textures);
 MEMSTATIC(world_models);
 
+MEMSTATIC(world_clipnodes);
+
 shader_t world_shader;
 texture_t lightmap_texture;
 
@@ -28,11 +30,19 @@ mat4 world_view;
 vec3 camera_pos;
 vec3 camera_front;
 vec3 camera_up;
+vec3 player_velocity;
+vec2 player_plane_moveaxis;
+vec3 player_wishdir;
 
 void World_init() {
 	world_loaded_world[0] = 0;
 
-	glm_vec3_zero(camera_pos);
+	vec3 testspawnpoint = { 5.64962 ,-1418.14612 ,-928.71838 };
+
+	//glm_vec3_zero(camera_pos);
+	glm_vec3_zero(player_velocity);
+	glm_vec2_zero(player_plane_moveaxis);
+	glm_vec3_copy(testspawnpoint, camera_pos);
 	glm_vec3_copy((vec3) { 0.0f, 0.0f, -1.0f }, camera_front);
 	glm_vec3_copy((vec3) { 0.0f, 1.0f, 0.0f }, camera_up);
 
@@ -90,6 +100,110 @@ void World_draw()
 	//Camera_translate((vec3) { 0.0f, 0.0f, -10.0f });
 }
 
+void camera_upload_view_matrix();
+void World_physic_step() {
+	vec3 oldpos;
+	glm_vec3_copy(camera_pos, oldpos);
+
+	// gravity
+	//player_velocity[1] -= 800;
+
+	vec3 dirf = { camera_front[0], 0.0f, camera_front[2] };
+	vec3 diru = { camera_up[0], 0.0f, camera_up[2] };
+	glm_vec3_normalize(dirf);
+	glm_vec3_normalize(diru);
+
+	glm_vec3_copy((vec3) {
+		player_plane_moveaxis[0] * dirf[0] + player_plane_moveaxis[1] * diru[0],
+			player_plane_moveaxis[0] * dirf[1] + player_plane_moveaxis[1] * diru[1],
+			player_plane_moveaxis[0] * dirf[2] + player_plane_moveaxis[1] * diru[2]
+	}, player_wishdir);
+
+	// friction
+	const float friction = 8.0f;
+	float lspeed = glm_vec3_distance(GLM_VEC3_ZERO, player_velocity);
+	//vec3 frictionv;
+	if (lspeed > 0.0f) {
+		glm_vec3_scale(player_velocity, 1.0 - (Game_delta() * friction), player_velocity);
+	}
+	else if (lspeed < 0.1) {
+		glm_vec3_zero(player_velocity);
+	}
+
+	// accelerate
+	const float accel = 32000.0f;
+	const float speed = 52000.0f;
+	vec3 accelv;
+	if (player_wishdir[0] > 0.0) {
+		int a = 0;
+	}
+	glm_vec3_scale(player_wishdir, (
+		glm_clamp(
+			speed - glm_vec3_dot(player_velocity, player_wishdir),
+			0.0f, accel * Game_delta()
+		)
+		), accelv);
+	glm_vec3_add(player_velocity, accelv, player_velocity);
+
+	/*printf("%f\n", glm_clamp(
+		speed - glm_vec3_dot(player_velocity, player_wishdir),
+		0.0f, accel* Game_delta()
+	));*/
+
+	//glm_vec3_add(player_velocity, player_wishdir, player_velocity);
+
+	
+
+	vec3 realvel;
+	glm_vec3_scale(player_velocity, Game_delta(), realvel);
+
+	vec3 added;
+	glm_vec3_add(camera_pos, realvel, added);
+
+	// move
+	raycast_result_t res;
+	World_raycast(camera_pos, added, &res);
+
+	//printf("%d\n", res.hit);
+
+	if (res.hit) {
+		// nah stop
+		vec3 cut;
+		vec3 remaining;
+		vec3 slide;
+
+		glm_vec3_sub(res.point, camera_pos, cut);
+		glm_vec3_sub(player_velocity, cut, remaining);
+		
+
+		// slide
+		glm_vec3_scale(res.normal, glm_vec3_dot(res.normal, remaining), slide);
+		glm_vec3_sub(remaining, slide, slide);
+
+		glm_vec3_copy(slide, player_velocity);
+
+		vec3 margin;
+		glm_vec3_scale(res.normal, 0.03125f, margin);
+		glm_vec3_add(camera_pos, margin, camera_pos);
+		//glm_vec3_print(res.normal, stdout);
+		glm_vec3_scale(slide, Game_delta(), realvel);
+
+		//player_velocity[1] += 800 * res.normal[1];
+		//glm_vec3_print(res.normal, stdout);
+	}
+	else {
+
+	}
+	
+	//printf("%d\n", res.hit);
+	glm_vec3_add(camera_pos, realvel, camera_pos);
+	//glm_vec3_print(realvel, stdout);
+
+	if (!glm_vec3_eqv(camera_pos, oldpos))
+		// pos changed
+		camera_upload_view_matrix();
+}
+
 void World_resize_viewport(int width, int height)
 {
 	glm_perspective(glm_rad(45.0f), (float)width / (float)height, 0.1f, 100000.0f, world_projection);
@@ -119,6 +233,67 @@ void camera_upload_view_matrix() {
 	);
 }
 
+// watch https://www.youtube.com/watch?v=wLHXn8IlAiA before understanding these
+bool_t _recursive_raycast(int32_t nidx, vec3 from, vec3 to, raycast_result_t* res) {
+	if (nidx == CONTENTS_SOLID) return true; // hit something
+	if (nidx < 0) return false; // hit air, water, lava, etc
+
+	world_clipnode_t* node = MEMARRAYINDEXPTR(world_clipnodes, world_clipnode_t, nidx);
+	worldplane_t* plane = &node->plane;
+
+	// distance from plane to from and to
+	float d1 = glm_dot(*plane, from) - (*plane)[3];
+	float d2 = glm_dot(*plane, to) - (*plane)[3];
+
+	// copy vec4.xyz to result normal
+	if (d1 < 0)
+		// other side ? flip normal
+		glm_vec3_sub(GLM_VEC3_ZERO, *(vec3*)plane, res->normal);
+	else
+		glm_vec3_copy(*(vec3*)plane, res->normal);
+
+	if (d1 >= 0 && d2 >= 0) {
+		// hmm both are in front of plane
+		return _recursive_raycast(node->front, from, to, res);
+	}
+	else if (d1 < 0 && d2 < 0) {
+		// hmm both are behind plane
+		return _recursive_raycast(node->back, from, to, res);
+	}
+	else {
+		// one is in front, one is behind . . . we have to split the ray
+		float frac = d1 / (d1 - d2); // simply an inverse lerp
+
+		glm_vec3_lerp(from, to, frac, res->point); // haha im middle
+
+		// try front
+		bool_t hit = _recursive_raycast(node->front, from, res->point, res);
+		if (hit) return true;
+
+		// no ? try back
+		return _recursive_raycast(node->back, res->point, to, res);
+	}
+}
+
+void World_raycast(vec3 from, vec3 to, raycast_result_t* result)
+{
+	result->hit = true;
+	glm_vec3_copy(to, result->point);
+
+	// check on all models
+	for (int i = 0; i < 1; i++) {
+		world_model_t* model = MEMARRAYINDEXPTR(world_models, world_model_t, i);
+
+		if (_recursive_raycast(model->first_node, from, to, result)) {
+			// yee hit something
+			return;
+		}
+	}
+
+	// no ?
+	result->hit = false;
+}
+
 void Camera_set_position(vec3 v)
 {
 	//glm_vec3_copy(v, camera_pos);
@@ -136,7 +311,7 @@ void Camera_forward(float step)
 {
 	vec3 v;
 	glm_vec3_scale(camera_front, step, v);
-	glm_vec3_add(camera_pos, v, camera_pos);
+	glm_vec3_add(player_velocity, v, player_velocity);
 	camera_upload_view_matrix();
 }
 
@@ -146,7 +321,7 @@ void Camera_right(float step)
 	glm_cross(camera_front, camera_up, v);
 	glm_normalize(v);
 	glm_vec3_scale(v, step, v);
-	glm_vec3_add(camera_pos, v, camera_pos);
+	glm_vec3_add(player_velocity, v, player_velocity);
 	camera_upload_view_matrix();
 }
 
@@ -160,6 +335,16 @@ void Camera_update_yawpitch(float yaw, float pitch) {
 	glm_vec3_copy(f, camera_front);
 
 	camera_upload_view_matrix();
+}
+
+void Player_forward(float step)
+{
+	player_plane_moveaxis[0] = step;
+}
+
+void Player_right(float step)
+{
+	player_plane_moveaxis[1] = step;
 }
 
 void Worldutil_vec3_to_opengl(vec3 v, vec3 dest)
@@ -359,6 +544,8 @@ int World_load_bsp(const char* map_name)
 		model_t* model = MEMARRAYINDEXPTR(models, model_t, i);
 		world_model_t* wmodel = MEMARRAYINDEXPTR(world_models, world_model_t, i);
 
+		wmodel->first_node = model->node_hulls[0];
+
 		MEM(wmodel->meshes);
 		MEMCREATEARRAY(wmodel->meshes, sizeof(world_mesh_t), world_textures.size);
 		//MEMCREATEARRAY(wmodel->meshes, sizeof(world_mesh_t), 1);
@@ -543,13 +730,7 @@ int World_load_bsp(const char* map_name)
 				for (uint32_t x = 0; x < real_width; x++) {
 #define INDEXWITHSTRIDE (real_width * k + rect->x + x) + (y + rect->y) * 1024
 					rgb_t C = (rgb_t){ lightmapdata[cc++] ,lightmapdata[cc++] ,lightmapdata[cc++] };
-					if (k == 0) {
-						memcpy(&lightmap_bitmap[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
-					}
-					else {
-						lightmap_bitmap[INDEXWITHSTRIDE] = (rgb_t){ 0xff, 0x00, 0xff };
-						cc += 3;
-					}
+					memcpy(&lightmap_bitmap[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
 					//char name[1024];
 					//sprintf(name, "lightmap%d.png", cc);
 					//stbi_write_png(name, 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
@@ -648,6 +829,23 @@ int World_load_bsp(const char* map_name)
 		///////////
 	}
 	Mem_release(&face_uvs);
+
+	/* convert nodes for collisions */
+
+	MEMCREATEARRAY(world_clipnodes, sizeof(world_clipnode_t), clipnodes.size);
+	for (uint32_t i = 0; i < clipnodes.size; i++) {
+		clipnode_t* node = MEMARRAYINDEXPTR(clipnodes, clipnode_t, i);
+		world_clipnode_t* item = MEMARRAYINDEXPTR(world_clipnodes, world_clipnode_t, i);
+		plane_t* plane = MEMARRAYINDEXPTR(planes, plane_t, node->plane_id);
+
+		item->plane[0] = -plane->normal[0];
+		item->plane[1] = plane->normal[2];
+		item->plane[2] = plane->normal[1];
+		item->plane[3] = plane->dist;
+		item->front = node->front;
+		item->back = node->back;
+	}
+	Mem_release(&clipnodes);
 
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
 

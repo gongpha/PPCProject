@@ -11,7 +11,7 @@ void Input_init() {
 
 void Input_process(GLFWwindow* window)
 {
-	float speed = 520.0f * Game_delta();
+	float speed = 5200.0f * Game_delta();
 	//printf("%f\n", speed);
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		Camera_forward(speed);
@@ -41,10 +41,10 @@ void Input_process_mouse(GLFWwindow* window, double xrelad, double yrelad)
 	pitch += yoffset;
 
 	// make sure that when pitch is out of bounds, screen doesn't get flipped
-	if (pitch > 89.0f)
-		pitch = 89.0f;
-	if (pitch < -89.0f)
-		pitch = -89.0f;
+	if (pitch > 89.9f)
+		pitch = 89.9f;
+	if (pitch < -89.9f)
+		pitch = -89.9f;
 
 	Camera_update_yawpitch(yaw, pitch);
 
