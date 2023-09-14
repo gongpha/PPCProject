@@ -14,6 +14,9 @@ typedef struct {
 	bool_t hit;
 	vec3 normal;
 	vec3 point;
+
+	// do not read bro
+	bool_t split_claimed;
 } raycast_result_t;
 void World_raycast(vec3 from, vec3 to, raycast_result_t* result);
 

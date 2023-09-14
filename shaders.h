@@ -101,6 +101,6 @@ uniform sampler2D lightmap;\
 void main()\
 {\
 	/*vec3 result = texture(lightmap, LightCoords).r * texture(tex, TexCoords).rgb;*/\
-	vec3 result = Normal * texture(lightmap, LightCoords).r;\
-	FragColor = vec4(texture(tex, LightCoords).xyz, 1.0);\
+	vec3 result = texture(tex, TexCoords).xyz * texture(lightmap, LightCoords).r;\
+	FragColor = vec4(result, 1.0);\
 }";

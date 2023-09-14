@@ -34,10 +34,17 @@ vec3 player_velocity;
 vec2 player_plane_moveaxis;
 vec3 player_wishdir;
 
+#define MAX_CHECK 8
+const vec3 quake_pal[] = {
+	{0.000000,0.000000,0.000000},{0.058824,0.058824,0.058824},{0.121569,0.121569,0.121569},{0.184314,0.184314,0.184314},{0.247059,0.247059,0.247059},{0.294118,0.294118,0.294118},{0.356863,0.356863,0.356863},{0.419608,0.419608,0.419608},{0.482353,0.482353,0.482353},{0.545098,0.545098,0.545098},{0.607843,0.607843,0.607843},{0.670588,0.670588,0.670588},{0.733333,0.733333,0.733333},{0.796078,0.796078,0.796078},{0.858824,0.858824,0.858824},{0.921569,0.921569,0.921569},{0.058824,0.043137,0.027451},{0.090196,0.058824,0.043137},{0.121569,0.090196,0.043137},{0.152941,0.105882,0.058824},{0.184314,0.137255,0.074510},{0.215686,0.168627,0.090196},{0.247059,0.184314,0.090196},{0.294118,0.215686,0.105882},{0.325490,0.231373,0.105882},{0.356863,0.262745,0.121569},{0.388235,0.294118,0.121569},{0.419608,0.325490,0.121569},{0.450980,0.341176,0.121569},{0.482353,0.372549,0.137255},{0.513726,0.403922,0.137255},{0.560784,0.435294,0.137255},{0.043137,0.043137,0.058824},{0.074510,0.074510,0.105882},{0.105882,0.105882,0.152941},{0.152941,0.152941,0.200000},{0.184314,0.184314,0.247059},{0.215686,0.215686,0.294118},{0.247059,0.247059,0.341176},{0.278431,0.278431,0.403922},{0.309804,0.309804,0.450980},{0.356863,0.356863,0.498039},{0.388235,0.388235,0.545098},{0.419608,0.419608,0.592157},{0.450980,0.450980,0.639216},{0.482353,0.482353,0.686275},{0.513726,0.513726,0.733333},{0.545098,0.545098,0.796078},{0.000000,0.000000,0.000000},{0.027451,0.027451,0.000000},{0.043137,0.043137,0.000000},{0.074510,0.074510,0.000000},{0.105882,0.105882,0.000000},{0.137255,0.137255,0.000000},{0.168627,0.168627,0.027451},{0.184314,0.184314,0.027451},{0.215686,0.215686,0.027451},{0.247059,0.247059,0.027451},{0.278431,0.278431,0.027451},{0.294118,0.294118,0.043137},{0.325490,0.325490,0.043137},{0.356863,0.356863,0.043137},{0.388235,0.388235,0.043137},{0.419608,0.419608,0.058824},{0.027451,0.000000,0.000000},{0.058824,0.000000,0.000000},{0.090196,0.000000,0.000000},{0.121569,0.000000,0.000000},{0.152941,0.000000,0.000000},{0.184314,0.000000,0.000000},{0.215686,0.000000,0.000000},{0.247059,0.000000,0.000000},{0.278431,0.000000,0.000000},{0.309804,0.000000,0.000000},{0.341176,0.000000,0.000000},{0.372549,0.000000,0.000000},{0.403922,0.000000,0.000000},{0.435294,0.000000,0.000000},{0.466667,0.000000,0.000000},{0.498039,0.000000,0.000000},{0.074510,0.074510,0.000000},{0.105882,0.105882,0.000000},{0.137255,0.137255,0.000000},{0.184314,0.168627,0.000000},{0.215686,0.184314,0.000000},{0.262745,0.215686,0.000000},{0.294118,0.231373,0.027451},{0.341176,0.262745,0.027451},{0.372549,0.278431,0.027451},{0.419608,0.294118,0.043137},{0.466667,0.325490,0.058824},{0.513726,0.341176,0.074510},{0.545098,0.356863,0.074510},{0.592157,0.372549,0.105882},{0.639216,0.388235,0.121569},{0.686275,0.403922,0.137255},{0.137255,0.074510,0.027451},{0.184314,0.090196,0.043137},{0.231373,0.121569,0.058824},{0.294118,0.137255,0.074510},{0.341176,0.168627,0.090196},{0.388235,0.184314,0.121569},{0.450980,0.215686,0.137255},{0.498039,0.231373,0.168627},{0.560784,0.262745,0.200000},{0.623529,0.309804,0.200000},{0.686275,0.388235,0.184314},{0.749020,0.466667,0.184314},{0.811765,0.560784,0.168627},{0.874510,0.670588,0.152941},{0.937255,0.796078,0.121569},{1.000000,0.952941,0.105882},{0.043137,0.027451,0.000000},{0.105882,0.074510,0.000000},{0.168627,0.137255,0.058824},{0.215686,0.168627,0.074510},{0.278431,0.200000,0.105882},{0.325490,0.215686,0.137255},{0.388235,0.247059,0.168627},{0.435294,0.278431,0.200000},{0.498039,0.325490,0.247059},{0.545098,0.372549,0.278431},{0.607843,0.419608,0.325490},{0.654902,0.482353,0.372549},{0.717647,0.529412,0.419608},{0.764706,0.576471,0.482353},{0.827451,0.639216,0.545098},{0.890196,0.701961,0.592157},{0.670588,0.545098,0.639216},{0.623529,0.498039,0.592157},{0.576471,0.450980,0.529412},{0.545098,0.403922,0.482353},{0.498039,0.356863,0.435294},{0.466667,0.325490,0.388235},{0.419608,0.294118,0.341176},{0.372549,0.247059,0.294118},{0.341176,0.215686,0.262745},{0.294118,0.184314,0.215686},{0.262745,0.152941,0.184314},{0.215686,0.121569,0.137255},{0.168627,0.090196,0.105882},{0.137255,0.074510,0.074510},{0.090196,0.043137,0.043137},{0.058824,0.027451,0.027451},{0.733333,0.450980,0.623529},{0.686275,0.419608,0.560784},{0.639216,0.372549,0.513726},{0.592157,0.341176,0.466667},{0.545098,0.309804,0.419608},{0.498039,0.294118,0.372549},{0.450980,0.262745,0.325490},{0.419608,0.231373,0.294118},{0.372549,0.200000,0.247059},{0.325490,0.168627,0.215686},{0.278431,0.137255,0.168627},{0.231373,0.121569,0.137255},{0.184314,0.090196,0.105882},{0.137255,0.074510,0.074510},{0.090196,0.043137,0.043137},{0.058824,0.027451,0.027451},{0.858824,0.764706,0.733333},{0.796078,0.701961,0.654902},{0.749020,0.639216,0.607843},{0.686275,0.592157,0.545098},{0.639216,0.529412,0.482353},{0.592157,0.482353,0.435294},{0.529412,0.435294,0.372549},{0.482353,0.388235,0.325490},{0.419608,0.341176,0.278431},{0.372549,0.294118,0.231373},{0.325490,0.247059,0.200000},{0.262745,0.200000,0.152941},{0.215686,0.168627,0.121569},{0.152941,0.121569,0.090196},{0.105882,0.074510,0.058824},{0.058824,0.043137,0.027451},{0.435294,0.513726,0.482353},{0.403922,0.482353,0.435294},{0.372549,0.450980,0.403922},{0.341176,0.419608,0.372549},{0.309804,0.388235,0.341176},{0.278431,0.356863,0.309804},{0.247059,0.325490,0.278431},{0.215686,0.294118,0.247059},{0.184314,0.262745,0.215686},{0.168627,0.231373,0.184314},{0.137255,0.200000,0.152941},{0.121569,0.168627,0.121569},{0.090196,0.137255,0.090196},{0.058824,0.105882,0.074510},{0.043137,0.074510,0.043137},{0.027451,0.043137,0.027451},{1.000000,0.952941,0.105882},{0.937255,0.874510,0.090196},{0.858824,0.796078,0.074510},{0.796078,0.717647,0.058824},{0.733333,0.654902,0.058824},{0.670588,0.592157,0.043137},{0.607843,0.513726,0.027451},{0.545098,0.450980,0.027451},{0.482353,0.388235,0.027451},{0.419608,0.325490,0.000000},{0.356863,0.278431,0.000000},{0.294118,0.215686,0.000000},{0.231373,0.168627,0.000000},{0.168627,0.121569,0.000000},{0.105882,0.058824,0.000000},{0.043137,0.027451,0.000000},{0.000000,0.000000,1.000000},{0.043137,0.043137,0.937255},{0.074510,0.074510,0.874510},{0.105882,0.105882,0.811765},{0.137255,0.137255,0.749020},{0.168627,0.168627,0.686275},{0.184314,0.184314,0.623529},{0.184314,0.184314,0.560784},{0.184314,0.184314,0.498039},{0.184314,0.184314,0.435294},{0.184314,0.184314,0.372549},{0.168627,0.168627,0.309804},{0.137255,0.137255,0.247059},{0.105882,0.105882,0.184314},{0.074510,0.074510,0.121569},{0.043137,0.043137,0.058824},{0.168627,0.000000,0.000000},{0.231373,0.000000,0.000000},{0.294118,0.027451,0.000000},{0.372549,0.027451,0.000000},{0.435294,0.058824,0.000000},{0.498039,0.090196,0.027451},{0.576471,0.121569,0.027451},{0.639216,0.152941,0.043137},{0.717647,0.200000,0.058824},{0.764706,0.294118,0.105882},{0.811765,0.388235,0.168627},{0.858824,0.498039,0.231373},{0.890196,0.592157,0.309804},{0.905882,0.670588,0.372549},{0.937255,0.749020,0.466667},{0.968627,0.827451,0.545098},{0.654902,0.482353,0.231373},{0.717647,0.607843,0.215686},{0.780392,0.764706,0.215686},{0.905882,0.890196,0.341176},{0.498039,0.749020,1.000000},{0.670588,0.905882,1.000000},{0.843137,1.000000,1.000000},{0.403922,0.000000,0.000000},{0.545098,0.000000,0.000000},{0.701961,0.000000,0.000000},{0.843137,0.000000,0.000000},{1.000000,0.000000,0.000000},{1.000000,0.952941,0.576471},{1.000000,0.968627,0.780392},{1.000000,1.000000,1.000000},{0.623529,0.356863,0.325490},
+};
+
 void World_init() {
 	world_loaded_world[0] = 0;
 
-	vec3 testspawnpoint = { 5.64962 ,-1418.14612 ,-928.71838 };
+	//vec3 testspawnpoint = { 5.64962 ,-1418.14612 ,-928.71838 };
+	//vec3 testspawnpoint = { 0 ,0 ,128 };
+	vec3 testspawnpoint = { 0 ,0 ,0 };
 
 	//glm_vec3_zero(camera_pos);
 	glm_vec3_zero(player_velocity);
@@ -73,10 +80,11 @@ void World_draw()
 
 	Shader_use(&world_shader);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, lightmap_texture.id);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, lightmap_texture.id);
+	GLint u_tex = glGetUniformLocation(world_shader.program, "tex");
+	GLint u_lightmap = glGetUniformLocation(world_shader.program, "lightmap");
+
+	glUniform1i(u_tex, 0);
+	glUniform1i(u_lightmap, 1);
 
 	// draw
 	for (int i = 0; i < world_models.size; i++) {
@@ -86,6 +94,11 @@ void World_draw()
 			world_mesh_t* mesh = MEMARRAYINDEXPTR(model->meshes, world_mesh_t, j);
 			if (mesh->vao == -1)
 				continue;
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, mesh->texture->texture.id);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, lightmap_texture.id);
 
 			glBindVertexArray(mesh->vao);
 			glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
@@ -152,49 +165,51 @@ void World_physic_step() {
 
 	//glm_vec3_add(player_velocity, player_wishdir, player_velocity);
 
-	
+
 
 	vec3 realvel;
-	glm_vec3_scale(player_velocity, Game_delta(), realvel);
-
 	vec3 added;
-	glm_vec3_add(camera_pos, realvel, added);
-
-	// move
 	raycast_result_t res;
-	World_raycast(camera_pos, added, &res);
 
-	//printf("%d\n", res.hit);
+	for (int i = 0; i < MAX_CHECK; i++) {
 
-	if (res.hit) {
-		// nah stop
-		vec3 cut;
-		vec3 remaining;
-		vec3 slide;
+		// move
+		glm_vec3_scale(player_velocity, Game_delta(), realvel);
+		glm_vec3_add(camera_pos, realvel, added);
+		World_raycast(camera_pos, added, &res);
 
-		glm_vec3_sub(res.point, camera_pos, cut);
-		glm_vec3_sub(player_velocity, cut, remaining);
-		
+		//printf("%d (%f %f %f) (%f %f %f)\n", res.hit, res.normal[0], res.normal[1], res.normal[2], res.point[0], res.point[1], res.point[2]);
+#define PRINTV(v) printf("(%f %f %f)\n", v[0], v[1], v[2])
 
-		// slide
-		glm_vec3_scale(res.normal, glm_vec3_dot(res.normal, remaining), slide);
-		glm_vec3_sub(remaining, slide, slide);
 
-		glm_vec3_copy(slide, player_velocity);
+		if (res.hit) {
+			// nah stop
+			vec3 cut;
+			vec3 remaining;
 
-		vec3 margin;
-		glm_vec3_scale(res.normal, 0.03125f, margin);
-		glm_vec3_add(camera_pos, margin, camera_pos);
-		//glm_vec3_print(res.normal, stdout);
-		glm_vec3_scale(slide, Game_delta(), realvel);
 
-		//player_velocity[1] += 800 * res.normal[1];
-		//glm_vec3_print(res.normal, stdout);
+			glm_vec3_sub(res.point, camera_pos, cut);
+			glm_vec3_sub(player_velocity, cut, remaining);
+
+			//PRINTV(cut);
+			//PRINTV(remaining);
+
+			vec3 slide;
+
+			// slide
+			glm_vec3_scale(res.normal, glm_vec3_dot(res.normal, remaining), slide);
+			glm_vec3_sub(remaining, slide, slide);
+
+			glm_vec3_copy(slide, player_velocity);
+
+			//glm_vec3_print(res.normal, stdout);
+			glm_vec3_scale(slide, Game_delta(), realvel);
+
+			//player_velocity[1] += 800 * res.normal[1];
+			//glm_vec3_print(res.normal, stdout);
+		}
 	}
-	else {
 
-	}
-	
 	//printf("%d\n", res.hit);
 	glm_vec3_add(camera_pos, realvel, camera_pos);
 	//glm_vec3_print(realvel, stdout);
@@ -235,8 +250,10 @@ void camera_upload_view_matrix() {
 
 // watch https://www.youtube.com/watch?v=wLHXn8IlAiA before understanding these
 bool_t _recursive_raycast(int32_t nidx, vec3 from, vec3 to, raycast_result_t* res) {
-	if (nidx == CONTENTS_SOLID) return true; // hit something
-	if (nidx < 0) return false; // hit air, water, lava, etc
+	if (nidx == CONTENTS_SOLID)
+		return true; // hit something
+	if (nidx < 0)
+		return false; // hit air, water, lava, etc
 
 	world_clipnode_t* node = MEMARRAYINDEXPTR(world_clipnodes, world_clipnode_t, nidx);
 	worldplane_t* plane = &node->plane;
@@ -266,18 +283,35 @@ bool_t _recursive_raycast(int32_t nidx, vec3 from, vec3 to, raycast_result_t* re
 
 		glm_vec3_lerp(from, to, frac, res->point); // haha im middle
 
+
+
 		// try front
-		bool_t hit = _recursive_raycast(node->front, from, res->point, res);
-		if (hit) return true;
+		bool_t hit = _recursive_raycast(d2 < d1 ? node->front : node->back, from, res->point, res);
+		if (hit) {
+			//printf("WOW\n");
+			return true;
+		}
 
 		// no ? try back
-		return _recursive_raycast(node->back, res->point, to, res);
+		bool_t ress = _recursive_raycast(d1 < d2 ? node->front : node->back, res->point, to, res);
+
+		if (ress && !res->split_claimed) {
+			// yes recopy
+			if (d1 < 0)
+				// other side ? flip normal
+				glm_vec3_sub(GLM_VEC3_ZERO, *(vec3*)plane, res->normal);
+			else
+				glm_vec3_copy(*(vec3*)plane, res->normal);
+			res->split_claimed = true;
+		}
+		return ress;
 	}
 }
 
 void World_raycast(vec3 from, vec3 to, raycast_result_t* result)
 {
 	result->hit = true;
+	result->split_claimed = false;
 	glm_vec3_copy(to, result->point);
 
 	// check on all models
@@ -432,12 +466,14 @@ int World_load_bsp(const char* map_name)
 			// invalid texture. SKip
 			// assign some funni info
 			strncpy(texture->name, "INVALIDTEXTURELMAO", 16);
+
 			texture->texture.width = -1;
 			texture->texture.height = -1;
 			texture->texture.id = -1;
 			continue;
 		}
-		fseek(f, header.miptex.offset + offset, SEEK_SET);
+		uint32_t entry_offset = header.miptex.offset + offset;
+		fseek(f, entry_offset, SEEK_SET);
 
 		fread(&texture->name, sizeof(char), 16, f);
 		uint32_t size[2];
@@ -451,13 +487,28 @@ int World_load_bsp(const char* map_name)
 
 		if (data_offset) {
 			// embed into the file !!!
-			fseek(f, data_offset, SEEK_SET);
-			char* im_data = malloc((size[0] * size[1]) * sizeof(char));
-			fread(&im_data, sizeof(char), size[0] * size[1], f);
+			fseek(f, entry_offset + data_offset, SEEK_SET);
+			//char* id_data = malloc((size[0] * size[1]) * sizeof(char));
+
+			size_t tnumsize = size[0] * size[1];
+			struct rgb {
+				uint8_t r, g, b;
+			};
+			struct rgb* im_data = malloc(tnumsize * sizeof(struct rgb));
+
+			for (int j = 0; j < tnumsize; j++) {
+				uint8_t index;
+				fread(&index, sizeof(uint8_t), 1, f);
+
+
+				im_data[j].r = (uint8_t)(quake_pal[index][0] * 255.0f);
+				im_data[j].g = (uint8_t)(quake_pal[index][1] * 255.0f);
+				im_data[j].b = (uint8_t)(quake_pal[index][2] * 255.0f);
+			}
 
 			glGenTextures(1, &texture->texture.id);
 			glBindTexture(GL_TEXTURE_2D, texture->texture.id);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, size[0], size[1], 0, GL_RED, GL_UNSIGNED_BYTE, im_data);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, im_data);
 			glGenerateMipmap(GL_TEXTURE_2D);
 			free(im_data);
 		}
@@ -471,7 +522,7 @@ int World_load_bsp(const char* map_name)
 
 	// vertices
 	fseek(f, header.vertices.offset, SEEK_SET);
-	MEMCREATEARRAYLUMP(vertices, sizeof(vec3), header.planes.size);
+	MEMCREATEARRAYLUMP(vertices, sizeof(vec3), header.vertices.size);
 	MEMREADLUMP(vertices, f);
 
 	// visilist
@@ -522,9 +573,8 @@ int World_load_bsp(const char* map_name)
 	MEMREADLUMP(edges, f);
 
 	// ledges
-	uint32_t edgeidsize = (header.version == 29) ? sizeof(short) : sizeof(int);
 	fseek(f, header.ledges.offset, SEEK_SET);
-	MEMCREATEARRAYLUMP(ledges, edgeidsize, header.ledges.size);
+	MEMCREATEARRAYLUMP(ledges, sizeof(int), header.ledges.size);
 	MEMREADLUMP(ledges, f);
 
 	// models
@@ -545,6 +595,7 @@ int World_load_bsp(const char* map_name)
 		world_model_t* wmodel = MEMARRAYINDEXPTR(world_models, world_model_t, i);
 
 		wmodel->first_node = model->node_hulls[0];
+		//wmodel->first_node = model->node_hulls[0];
 
 		MEM(wmodel->meshes);
 		MEMCREATEARRAY(wmodel->meshes, sizeof(world_mesh_t), world_textures.size);
@@ -566,12 +617,7 @@ int World_load_bsp(const char* map_name)
 			world_texture_t* tex = mesh->texture;
 
 			void* ledge;
-			if (header.version == 29) {
-				ledge = MEMARRAYINDEXPTR(ledges, short, f->first_edge);
-			}
-			else {
-				ledge = MEMARRAYINDEXPTR(ledges, int, f->first_edge);
-			}
+			ledge = MEMARRAYINDEXPTR(ledges, int, f->first_edge);
 
 #define VECS pos
 #define CHOOSEEDGE(iii, cast) {\
@@ -601,11 +647,8 @@ int World_load_bsp(const char* map_name)
 				int edge;
 				uint32_t pos;
 
-				if (header.version == 29)
-					CHOOSEEDGE(k, short)
-				else
-					CHOOSEEDGE(k, int)
-					;
+				CHOOSEEDGE(k, int);
+
 				vec3* vpos = MEMARRAYINDEXPTR(vertices, vec3, pos);
 
 				vec2 uv0 = {
@@ -674,76 +717,105 @@ int World_load_bsp(const char* map_name)
 
 	// create lightmap textures
 
-	// pack them first
-	stbrp_context ctx;
-	stbrp_node* packnodes = (stbrp_node*)malloc(sizeof(stbrp_node) * 1024 * 2);
-	stbrp_init_target(&ctx, 1024, 1024, packnodes, 1024 * 2);
-	stbrp_pack_rects(&ctx, lightmap_rects.data, lightmap_rects_size);
-	free(packnodes);
+	if (lightmap_rects_size > 0) {
+		// pack them first
+		stbrp_context ctx;
+		stbrp_node* packnodes = (stbrp_node*)malloc(sizeof(stbrp_node) * 1024 * 2);
+		stbrp_init_target(&ctx, 1024, 1024, packnodes, 1024 * 2);
+		stbrp_pack_rects(&ctx, lightmap_rects.data, lightmap_rects_size);
+		free(packnodes);
 
-	rgb_t* lightmap_bitmap = (rgb_t*)malloc(1024 * 1024 * sizeof(rgb_t));
+		void* lightmap_bitmap;
 
-	for (uint32_t i = 0; i < lightmap_rects_size; i++) {
-		stbrp_rect* rect = MEMARRAYINDEXPTR(lightmap_rects, stbrp_rect, i);
-		face_t* face = MEMARRAYINDEXPTR(faces, face_t, rect->id);
-		const uint8_t* lightmapdata = ((uint8_t*)lightmaps.data + face->lightmap);
+		if (header.version == 29)
+			lightmap_bitmap = malloc(1024 * 1024 * sizeof(uint8_t));
+		else
+			lightmap_bitmap = malloc(1024 * 1024 * sizeof(rgb_t));
 
-		face_uv* fuv = MEMARRAYINDEXPTR(face_uvs, face_uv, rect->id);
-		vec2* uv2s = fuv->uv2;
-		for (uint32_t k = 0; k < face->edge_count; k++) {
-			vec2* uv = &uv2s[k];
+		for (uint32_t i = 0; i < lightmap_rects_size; i++) {
+			stbrp_rect* rect = MEMARRAYINDEXPTR(lightmap_rects, stbrp_rect, i);
+			face_t* face = MEMARRAYINDEXPTR(faces, face_t, rect->id);
+			const uint8_t* lightmapdata = ((uint8_t*)lightmaps.data + face->lightmap);
 
-			vec2 lpos = {
-				((float)rect->x + 0.5f) / 1024.0f,
-				((float)rect->y + 0.5f) / 1024.0f
-			};
+			face_uv* fuv = MEMARRAYINDEXPTR(face_uvs, face_uv, rect->id);
+			vec2* uv2s = fuv->uv2;
+			for (uint32_t k = 0; k < face->edge_count; k++) {
+				vec2* uv = &uv2s[k];
 
-			vec2 fsize = {
-				(rect->w - 1) / 1024.0f,
-				(rect->h - 1) / 1024.0f
-			};
+				vec2 lpos = {
+					((float)rect->x + 0.5f) / 1024.0f,
+					((float)rect->y + 0.5f) / 1024.0f
+				};
 
-			(*uv)[0] = ((*uv)[0] * fsize[0]) + lpos[0];
-			(*uv)[1] = ((*uv)[1] * fsize[1]) + lpos[1];
-		}
+				vec2 fsize = {
+					(rect->w - 1) / 1024.0f,
+					(rect->h - 1) / 1024.0f
+				};
 
-		//if (face->lightmap == -1) continue;
+				(*uv)[0] = ((*uv)[0] * fsize[0]) + lpos[0];
+				(*uv)[1] = ((*uv)[1] * fsize[1]) + lpos[1];
+			}
 
-		// count lightmaps
-		uint32_t lm = 0;
-		for (uint32_t k = 0; k < 4; k++) {
-			if (face->light[k] == 255) continue;
-			lm++;
-		}
+			//if (face->lightmap == -1) continue;
 
-		if (lm == 0)
-			continue; // <- impossible
+			// count lightmaps
+			uint32_t lm = 0;
+			for (uint32_t k = 0; k < 4; k++) {
+				if (face->light[k] == 255) continue;
+				lm++;
+			}
 
-		const uint32_t real_width = (rect->w / lm);
-		uint32_t cc = 0;
+			if (lm == 0)
+				continue; // <- impossible
 
-		// paint lightmaps
-		for (uint32_t k = 0; k < 4; k++) {
-			if (face->light[k] == 255) continue;
+			const uint32_t real_width = (rect->w / lm);
+			uint32_t cc = 0;
 
-			for (uint32_t y = 0; y < rect->h; y++) {
-				for (uint32_t x = 0; x < real_width; x++) {
+			// paint lightmaps
+			for (uint32_t k = 0; k < 4; k++) {
+				if (face->light[k] == 255) continue;
 #define INDEXWITHSTRIDE (real_width * k + rect->x + x) + (y + rect->y) * 1024
-					rgb_t C = (rgb_t){ lightmapdata[cc++] ,lightmapdata[cc++] ,lightmapdata[cc++] };
-					memcpy(&lightmap_bitmap[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
-					//char name[1024];
-					//sprintf(name, "lightmap%d.png", cc);
-					//stbi_write_png(name, 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
+				for (uint32_t y = 0; y < rect->h; y++) {
+					for (uint32_t x = 0; x < real_width; x++) {
+						if (header.version == 29) {
+							((uint8_t*)lightmap_bitmap)[INDEXWITHSTRIDE] = lightmapdata[cc++];
+						}
+						else {
+							rgb_t C = (rgb_t){ lightmapdata[cc++] ,lightmapdata[cc++] ,lightmapdata[cc++] };
+							memcpy(&((rgb_t*)lightmap_bitmap)[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
+#undef INDEXWITHSTRIDE
+						}
+						//char name[1024];
+						//sprintf(name, "lightmap%d.png", cc);
+						//stbi_write_png(name, 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
+					}
 				}
 			}
+			//break;
 		}
-		//break;
-	}
 
-	Texture_new(&lightmap_texture);
-	Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 3);
-	//stbi_write_png("lightmap.png", 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
-	free(lightmap_bitmap);
+		Texture_new(&lightmap_texture);
+		if (header.version == 29) {
+			Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 1);
+		}
+		else {
+			Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 3);
+		}
+		//stbi_write_png("lightmap.png", 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
+		free(lightmap_bitmap);
+	}
+	else {
+		// no lightmaps ?
+		// create a dummy one
+		uint8_t lightmap_bitmap_29[1] = { 255 }; // quake
+		uint8_t lightmap_bitmap_30[3] = { 255, 255, 255 }; // goldsrc
+
+		Texture_new(&lightmap_texture);
+		if (header.version == 29)
+			Texture_from_data(&lightmap_texture, lightmap_bitmap_29, 1, 1, 1);
+		else
+			Texture_from_data(&lightmap_texture, lightmap_bitmap_30, 1, 1, 3);
+	}
 
 
 	for (uint32_t i = 0; i < models.size; i++) {
@@ -850,7 +922,7 @@ int World_load_bsp(const char* map_name)
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
 
 	Mem_release(&planes);
-	Mem_release(&world_textures);
+	//Mem_release(&world_textures);
 	Mem_release(&vertices);
 	Mem_release(&vislist);
 	Mem_release(&nodes);
