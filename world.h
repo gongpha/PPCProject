@@ -2,6 +2,7 @@
 #define _H_WORLD_H_
 
 #include "bsp.h"
+#include "entity_src.h"
 #include "maindef.h"
 
 int World_load_bsp(const char* map_name);

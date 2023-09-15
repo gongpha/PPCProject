@@ -44,12 +44,12 @@ void World_init() {
 
 	//vec3 testspawnpoint = { 5.64962 ,-1418.14612 ,-928.71838 };
 	//vec3 testspawnpoint = { 0 ,0 ,128 };
-	vec3 testspawnpoint = { 0 ,0 ,0 };
+	//vec3 testspawnpoint = { 0 ,0 ,0 };
 
 	//glm_vec3_zero(camera_pos);
 	glm_vec3_zero(player_velocity);
 	glm_vec2_zero(player_plane_moveaxis);
-	glm_vec3_copy(testspawnpoint, camera_pos);
+
 	glm_vec3_copy((vec3) { 0.0f, 0.0f, -1.0f }, camera_front);
 	glm_vec3_copy((vec3) { 0.0f, 1.0f, 0.0f }, camera_up);
 
@@ -62,6 +62,7 @@ void World_init() {
 
 void World_clear() {
 	// delet
+	entitysrc_clear();
 	Mem_release(&world_entities_src);
 
 	for (uint32_t i = 0; i < world_models.size; i++) {
@@ -238,8 +239,11 @@ void World_resize_viewport(int width, int height)
 
 void camera_upload_view_matrix() {
 	vec3 posfront;
-	glm_vec3_add(camera_pos, camera_front, posfront);
-	glm_lookat(camera_pos, posfront, camera_up, world_view);
+	vec3 realpos;
+	glm_vec3_add(camera_pos, (vec3) { 0, 24, 0 }, realpos);
+
+	glm_vec3_add(realpos, camera_front, posfront);
+	glm_lookat(realpos, posfront, camera_up, world_view);
 
 	Shader_use(&world_shader);
 	glUniformMatrix4fv(
@@ -436,8 +440,12 @@ int World_load_bsp(const char* map_name)
 
 	// entities
 	fseek(f, header.entities.offset, SEEK_SET);
-	MEMCREATE(world_entities_src, header.entities.size);
+	MEMCREATE(world_entities_src, header.entities.size + 1);
 	MEMREADLUMP(world_entities_src, f);
+	((char*)world_entities_src.data)[header.entities.size] = '\0';
+
+	if (entitysrc_parse(world_entities_src.data) == 555)
+		return 555;
 
 	// planes
 	fseek(f, header.planes.offset, SEEK_SET);
@@ -937,6 +945,9 @@ int World_load_bsp(const char* map_name)
 	Mem_release(&models);
 
 	strcpy(world_loaded_world, map_name);
+
+	entitysrc_get_player_start_position(camera_pos);
+	Worldutil_vec3_to_opengl(camera_pos, camera_pos);
 
 	return 0;
 }
