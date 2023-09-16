@@ -12,14 +12,19 @@ void World_physic_step();
 void World_resize_viewport(int width, int height);
 
 typedef struct {
-	bool_t hit;
+	bool_t hit; // when inside solid, it will be true
 	vec3 normal;
 	vec3 point;
 
-	// do not read bro
-	bool_t split_claimed;
+	bool_t split_claimed; // when hit some plane, it will be true (UNLIKE hit !)
 } raycast_result_t;
+
+typedef struct {
+	int content_type;
+} pointcheck_result_t;
+
 void World_raycast(vec3 from, vec3 to, raycast_result_t* result);
+void World_pointcheck(vec3 point, pointcheck_result_t* result);
 
 void Camera_set_position(vec3 v);
 void Camera_translate(vec3 v);
@@ -29,12 +34,13 @@ void Camera_update_yawpitch(float yaw, float pitch);
 
 void Player_forward(float step);
 void Player_right(float step);
+void Player_jump();
 
 void Worldutil_vec3_to_opengl(vec3 v, vec3 dest);
 
 typedef vec4 worldplane_t;
 
-// like quake engine
+// as same as quake engine
 // leaf contents
 #define	CONTENTS_EMPTY -1
 #define	CONTENTS_SOLID -2

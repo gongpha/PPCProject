@@ -11,16 +11,19 @@ void Input_init() {
 
 void Input_process(GLFWwindow* window)
 {
-	float speed = 5200.0f * Game_delta();
+	float speed = 1.0f;// 5200.0f * Game_delta();
 	//printf("%f\n", speed);
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		Camera_forward(speed);
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		Camera_forward(-speed);
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		Camera_right(-speed);
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		Camera_right(speed);
+
+	Player_forward(_is_pressed(window, GLFW_KEY_W) - _is_pressed(window, GLFW_KEY_S));
+	Player_right(_is_pressed(window, GLFW_KEY_D) - _is_pressed(window, GLFW_KEY_A));
+
+	if (_is_pressed(window, GLFW_KEY_SPACE)) {
+		Player_jump();
+	}
+}
+
+int _is_pressed(GLFWwindow* window, int key) {
+	return glfwGetKey(window, key) == GLFW_PRESS;
 }
 
 void Input_process_mouse(GLFWwindow* window, double xrelad, double yrelad)

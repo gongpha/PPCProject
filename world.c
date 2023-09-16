@@ -33,6 +33,8 @@ vec3 camera_up;
 vec3 player_velocity;
 vec2 player_plane_moveaxis;
 vec3 player_wishdir;
+bool_t player_is_on_floor;
+bool_t player_queue_jump;
 
 #define MAX_CHECK 8
 const vec3 quake_pal[] = {
@@ -41,6 +43,9 @@ const vec3 quake_pal[] = {
 
 void World_init() {
 	world_loaded_world[0] = 0;
+
+	player_is_on_floor = false;
+	player_queue_jump = false;
 
 	//vec3 testspawnpoint = { 5.64962 ,-1418.14612 ,-928.71838 };
 	//vec3 testspawnpoint = { 0 ,0 ,128 };
@@ -113,64 +118,108 @@ void World_draw()
 
 	//Camera_translate((vec3) { 0.0f, 0.0f, -10.0f });
 }
-
+#define PRINTV(v) printf("(%f %f %f)\n", v[0], v[1], v[2])
 void camera_upload_view_matrix();
 void World_physic_step() {
 	vec3 oldpos;
 	glm_vec3_copy(camera_pos, oldpos);
 
-	// gravity
-	//player_velocity[1] -= 800;
-
 	vec3 dirf = { camera_front[0], 0.0f, camera_front[2] };
-	vec3 diru = { camera_up[0], 0.0f, camera_up[2] };
-	glm_vec3_normalize(dirf);
-	glm_vec3_normalize(diru);
+	vec3 dirl;
+	glm_vec3_copy(dirf, dirl);
+	glm_vec3_rotate(dirl, -GLM_PIf * 0.5 /* -90 deg */, (vec3) { 0.0f, 1.0f, 0.0f }); // rotate FORWARD vector to LEFT vector
+	//glm_vec3_normalize(dirf);
+	//glm_vec3_normalize(dirl);
 
 	glm_vec3_copy((vec3) {
-		player_plane_moveaxis[0] * dirf[0] + player_plane_moveaxis[1] * diru[0],
-			player_plane_moveaxis[0] * dirf[1] + player_plane_moveaxis[1] * diru[1],
-			player_plane_moveaxis[0] * dirf[2] + player_plane_moveaxis[1] * diru[2]
+		player_plane_moveaxis[0] * dirf[0] + player_plane_moveaxis[1] * dirl[0],
+			player_plane_moveaxis[0] * dirf[1] + player_plane_moveaxis[1] * dirl[1],
+			player_plane_moveaxis[0] * dirf[2] + player_plane_moveaxis[1] * dirl[2]
 	}, player_wishdir);
 
+	glm_vec3_normalize(player_wishdir);
+
+	//printf("(%f %f)\n", player_plane_moveaxis[0], player_plane_moveaxis[1]);
+	//PRINTV(dirf);
+	//PRINTV(dirl);
+	//printf("(%f %f %f)\n", player_velocity[0], player_velocity[1], player_velocity[2]);
+
 	// friction
-	const float friction = 8.0f;
-	float lspeed = glm_vec3_distance(GLM_VEC3_ZERO, player_velocity);
-	//vec3 frictionv;
-	if (lspeed > 0.0f) {
-		glm_vec3_scale(player_velocity, 1.0 - (Game_delta() * friction), player_velocity);
-	}
-	else if (lspeed < 0.1) {
-		glm_vec3_zero(player_velocity);
+	if (player_is_on_floor) {
+		const float friction = 8.0f;
+		float lspeed = glm_vec3_distance(GLM_VEC3_ZERO, player_velocity);
+		if (lspeed > 0.0f) {
+			float s = max(lspeed - (friction * lspeed * Game_delta()), 0.0f);
+			glm_vec3_scale(player_velocity, s, player_velocity);
+			glm_vec3_scale(player_velocity, 1.0f / lspeed, player_velocity);
+
+		}
+		else if (lspeed < 0.1) {
+			glm_vec3_zero(player_velocity);
+		}
+
 	}
 
 	// accelerate
-	const float accel = 32000.0f;
-	const float speed = 52000.0f;
+	const float accel = 3200.0f;
+	const float speed = 3200.0f;
 	vec3 accelv;
-	if (player_wishdir[0] > 0.0) {
-		int a = 0;
-	}
 	glm_vec3_scale(player_wishdir, (
 		glm_clamp(
-			speed - glm_vec3_dot(player_velocity, player_wishdir),
+			(player_is_on_floor ? speed : 0.5f) -glm_vec3_dot(player_velocity, player_wishdir),
 			0.0f, accel * Game_delta()
 		)
 		), accelv);
 	glm_vec3_add(player_velocity, accelv, player_velocity);
 
-	/*printf("%f\n", glm_clamp(
-		speed - glm_vec3_dot(player_velocity, player_wishdir),
-		0.0f, accel* Game_delta()
-	));*/
-
-	//glm_vec3_add(player_velocity, player_wishdir, player_velocity);
-
-
-
+	raycast_result_t res;
 	vec3 realvel;
 	vec3 added;
-	raycast_result_t res;
+	vec3 added2;
+
+	// stair
+
+	glm_vec3_copy(player_velocity, realvel);
+	realvel[1] = 0.0f;
+
+	glm_vec3_scale(realvel, Game_delta(), realvel);
+	glm_vec3_add(camera_pos, realvel, added);
+	glm_vec3_copy(added, added2);
+	added[1] += 16.0f;
+
+	World_raycast(added, added2, &res);
+	//printf("(%f %f %f) %d %d\n", res.normal[0], res.normal[1], res.normal[2], res.hit, res.split_claimed);
+	if (res.split_claimed) {
+		if (res.normal[1] > 0.7f) {
+			// step up
+			camera_pos[1] = res.point[1] + (8.0f / 32.0f); // << bonus margin
+		}
+	}
+
+	// is on floor
+	glm_vec3_copy(camera_pos, added);
+	glm_vec3_copy(added, added2);
+	added2[1] -= 1.0f;
+
+	World_raycast(added, added2, &res);
+	player_is_on_floor = false;
+	if (res.split_claimed) {
+		if (res.normal[1] > 0.7f) {
+			player_is_on_floor = true;
+		}
+	}
+
+	if (!player_is_on_floor)
+		player_velocity[1] -= 800 * Game_delta(); // gravity
+	else
+		player_velocity[1] = 0.0f;
+
+	if (player_queue_jump && player_is_on_floor) {
+		player_velocity[1] += 244;
+	}
+	player_queue_jump = false;
+
+	
 
 	for (int i = 0; i < MAX_CHECK; i++) {
 
@@ -180,7 +229,7 @@ void World_physic_step() {
 		World_raycast(camera_pos, added, &res);
 
 		//printf("%d (%f %f %f) (%f %f %f)\n", res.hit, res.normal[0], res.normal[1], res.normal[2], res.point[0], res.point[1], res.point[2]);
-#define PRINTV(v) printf("(%f %f %f)\n", v[0], v[1], v[2])
+
 
 
 		if (res.hit) {
@@ -222,7 +271,7 @@ void World_physic_step() {
 
 void World_resize_viewport(int width, int height)
 {
-	glm_perspective(glm_rad(45.0f), (float)width / (float)height, 0.1f, 100000.0f, world_projection);
+	glm_perspective(glm_rad(75.0f), (float)width / (float)height, 0.1f, 100000.0f, world_projection);
 	Shader_use(&world_shader);
 	glUniformMatrix4fv(
 		glGetUniformLocation(world_shader.program, "projection"),
@@ -287,8 +336,6 @@ bool_t _recursive_raycast(int32_t nidx, vec3 from, vec3 to, raycast_result_t* re
 
 		glm_vec3_lerp(from, to, frac, res->point); // haha im middle
 
-
-
 		// try front
 		bool_t hit = _recursive_raycast(d2 < d1 ? node->front : node->back, from, res->point, res);
 		if (hit) {
@@ -319,7 +366,7 @@ void World_raycast(vec3 from, vec3 to, raycast_result_t* result)
 	glm_vec3_copy(to, result->point);
 
 	// check on all models
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < world_models.size; i++) {
 		world_model_t* model = MEMARRAYINDEXPTR(world_models, world_model_t, i);
 
 		if (_recursive_raycast(model->first_node, from, to, result)) {
@@ -330,6 +377,30 @@ void World_raycast(vec3 from, vec3 to, raycast_result_t* result)
 
 	// no ?
 	result->hit = false;
+}
+
+void World_pointcheck(vec3 point, pointcheck_result_t* result) {
+	// check on all models
+	for (int i = 0; i < world_models.size; i++) {
+		world_model_t* model = MEMARRAYINDEXPTR(world_models, world_model_t, i);
+		int32_t node = model->first_node;
+		world_clipnode_t* clipnode = NULL;
+
+		while (node >= 0) {
+			clipnode = MEMARRAYINDEXPTR(world_clipnodes, world_clipnode_t, node);
+			worldplane_t* plane = &clipnode->plane;
+
+			float d = glm_dot(*plane, point) - (*plane)[3];
+			if (d >= 0)
+				node = clipnode->front;
+			else
+				node = clipnode->back;
+		}
+
+		result->content_type = node;
+		if (node != CONTENTS_EMPTY)
+			return; // found solid
+	}
 }
 
 void Camera_set_position(vec3 v)
@@ -383,6 +454,11 @@ void Player_forward(float step)
 void Player_right(float step)
 {
 	player_plane_moveaxis[1] = step;
+}
+
+void Player_jump()
+{
+	player_queue_jump = true;
 }
 
 void Worldutil_vec3_to_opengl(vec3 v, vec3 dest)
