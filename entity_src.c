@@ -59,24 +59,30 @@ int entitysrc_parse(const char* entsrc)
 				}
 				cursor++;
 			}
-			entitysrc_ent_t e;
-			e.keyvalues = keyvalues.data;
-			e.keyvalues_count = kv_num;
-			e.classname = classname;
-			classname = NULL;
 
+			MEMDYNAMICARRAYFIXSIZE(keyvalues, entitysrc_keyvalue_t, kv_num);
+
+			entitysrc_ent_t e;
+			e.keyvalues = keyvalues;
+			e.classname = classname;
+
+			classname = NULL;
+			MEM(keyvalues);
+			MEMCREATEDYNAMICARRAY(keyvalues, entitysrc_keyvalue_t);
 			MEMDYNAMICARRAYPUSH(entities, entitysrc_ent_t, ent_num, e);
 		}
 		cursor++;
 	}
 
-	for (int i = 0; i < entities.size; i++) {
+	MEMDYNAMICARRAYFIXSIZE(entities, entitysrc_ent_t, ent_num);
+
+	for (int i = 0; i < ent_num; i++) {
 		entitysrc_ent_t* e = MEMARRAYINDEXPTR(entities, entitysrc_ent_t, i);
 
 		if (strcmp(e->classname, "info_player_start")) continue;
 
-		for (int j = 0; j < e->keyvalues_count; j++) {
-			entitysrc_keyvalue_t* kv = &(e->keyvalues[j]);
+		for (int j = 0; j < e->keyvalues.size; j++) {
+			entitysrc_keyvalue_t* kv = MEMARRAYINDEXPTR(e->keyvalues, entitysrc_keyvalue_t, j);
 
 			if (!strcmp(kv->key, "origin")) {
 				sscanf(kv->value, "%f %f %f", &player_start_position[0], &player_start_position[1], &player_start_position[2]);
@@ -88,6 +94,11 @@ int entitysrc_parse(const char* entsrc)
 }
 
 void entitysrc_clear() {
+	for (int i = 0; i < entities.size; i++) {
+		entitysrc_ent_t* e = MEMARRAYINDEXPTR(entities, entitysrc_ent_t, i);
+		Mem_release(&e->keyvalues);
+	}
+
 	Mem_release(&entities);
 }
 

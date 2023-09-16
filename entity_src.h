@@ -12,8 +12,7 @@ typedef struct {
 	const char* classname;
 
 	// no classname
-	entitysrc_keyvalue_t* keyvalues;
-	size_t keyvalues_count;
+	memory_t keyvalues;
 } entitysrc_ent_t;
 
 int entitysrc_parse(const char* entsrc);

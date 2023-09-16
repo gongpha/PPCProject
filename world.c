@@ -464,8 +464,9 @@ void Player_jump()
 void Worldutil_vec3_to_opengl(vec3 v, vec3 dest)
 {
 	dest[0] = -v[0];
-	dest[1] = v[2];
+	float t = v[2]; // in case when dest == v
 	dest[2] = v[1];
+	dest[1] = t;
 }
 
 float invlerp(float a, float b, float v)
