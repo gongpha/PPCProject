@@ -35,6 +35,7 @@ vec2 player_plane_moveaxis;
 vec3 player_wishdir;
 bool_t player_is_on_floor;
 bool_t player_queue_jump;
+float smooth_stair;
 
 #define MAX_CHECK 8
 const vec3 quake_pal[] = {
@@ -43,6 +44,7 @@ const vec3 quake_pal[] = {
 
 void World_init() {
 	world_loaded_world[0] = 0;
+	smooth_stair = 0.0f;
 
 	player_is_on_floor = false;
 	player_queue_jump = false;
@@ -138,6 +140,12 @@ void World_physic_step() {
 	vec3 oldpos;
 	glm_vec3_copy(camera_pos, oldpos);
 
+	// smooooooooooooth stair stepping
+	if (smooth_stair < 0.0) {
+		smooth_stair /= 1.1;
+		if (smooth_stair > -0.001) smooth_stair = 0.0;
+	}
+
 	vec3 dirf = { camera_front[0], 0.0f, camera_front[2] };
 	vec3 dirl;
 	glm_vec3_copy(dirf, dirl);
@@ -206,7 +214,10 @@ void World_physic_step() {
 	if (res.split_claimed) {
 		if (res.normal[1] > 0.7f) {
 			// step up
-			camera_pos[1] = res.point[1] + (8.0f / 32.0f); // << bonus margin
+			float add = res.point[1] + (8.0f / 32.0f); // << bonus margin
+			smooth_stair += camera_pos[1] - add;
+			camera_pos[1] = add;
+			
 		}
 	}
 
@@ -303,7 +314,7 @@ void World_resize_viewport(int width, int height)
 void camera_upload_view_matrix() {
 	vec3 posfront;
 	vec3 realpos;
-	glm_vec3_add(camera_pos, (vec3) { 0, 24, 0 }, realpos);
+	glm_vec3_add(camera_pos, (vec3) { 0, 24 + smooth_stair, 0 }, realpos);
 
 	glm_vec3_add(realpos, camera_front, posfront);
 	glm_lookat(realpos, posfront, camera_up, world_view);
