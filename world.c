@@ -593,6 +593,8 @@ int World_load_bsp(const char* map_name)
 
 			glGenTextures(1, &texture->texture.id);
 			glBindTexture(GL_TEXTURE_2D, texture->texture.id);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, size[0], size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, im_data);
 			glGenerateMipmap(GL_TEXTURE_2D);
 			free(im_data);
