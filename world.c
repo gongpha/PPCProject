@@ -166,7 +166,7 @@ void World_physic_step() {
 	vec3 accelv;
 	glm_vec3_scale(player_wishdir, (
 		glm_clamp(
-			(player_is_on_floor ? speed : 0.5f) -glm_vec3_dot(player_velocity, player_wishdir),
+			(player_is_on_floor ? speed : 0.5f) - glm_vec3_dot(player_velocity, player_wishdir),
 			0.0f, accel * Game_delta()
 		)
 		), accelv);
@@ -219,7 +219,7 @@ void World_physic_step() {
 	}
 	player_queue_jump = false;
 
-	
+
 
 	for (int i = 0; i < MAX_CHECK; i++) {
 
@@ -675,6 +675,18 @@ int World_load_bsp(const char* map_name)
 	MEMCREATEDYNAMICARRAY(lightmap_rects, stbrp_rect);
 	uint32_t lightmap_rects_size = 0;
 
+	MEMSTATIC(surface_no_lights);
+	MEMCREATEDYNAMICARRAY(surface_no_lights, uint32_t);
+	uint32_t surface_no_light_count = 0;
+
+	// insert an empty rect (1x1) for surfaces with no lightmap
+	stbrp_rect rect;
+	rect.w = rect.h = 1;
+	rect.id = -1;
+	MEMDYNAMICARRAYPUSH(lightmap_rects, stbrp_rect, lightmap_rects_size,
+		rect
+	);
+
 	/* @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ */
 
 	for (uint32_t i = 0; i < models.size; i++) {
@@ -793,6 +805,11 @@ int World_load_bsp(const char* map_name)
 					rect
 				);
 			}
+			else {
+				// no lightmap ?
+				MEMDYNAMICARRAYPUSH(surface_no_lights, uint32_t, surface_no_light_count, model->face_id + j);
+
+			}
 
 			*MEMARRAYINDEXPTR(face_uvs, face_uv, model->face_id + j) = facei;
 			MEMDYNAMICARRAYPUSH(mesh->face_items, uint32_t, mesh->fi_cursor, model->face_id + j);
@@ -805,21 +822,82 @@ int World_load_bsp(const char* map_name)
 	// create lightmap textures
 
 	if (lightmap_rects_size > 0) {
+		uint32_t l_width, l_height;
+		l_width = l_height = 128;
+		int widthturn = 0;
+
 		// pack them first
+		// pick the smallest power of 2 that can fit all lightmaps
 		stbrp_context ctx;
-		stbrp_node* packnodes = (stbrp_node*)malloc(sizeof(stbrp_node) * 1024 * 2);
-		stbrp_init_target(&ctx, 1024, 1024, packnodes, 1024 * 2);
-		stbrp_pack_rects(&ctx, lightmap_rects.data, lightmap_rects_size);
-		free(packnodes);
+		for (;;) {
+			uint32_t maxwh = max(l_width, l_height) * 2;
+			stbrp_node* packnodes = (stbrp_node*)malloc(sizeof(stbrp_node) * maxwh);
+			stbrp_init_target(&ctx, l_width, l_height, packnodes, maxwh);
+			int ret = stbrp_pack_rects(&ctx, lightmap_rects.data, lightmap_rects_size);
+			free(packnodes);
+			if (!ret) {
+				// nah
+				if (widthturn)
+					l_height *= 2;
+				else
+					l_width *= 2;
+				widthturn = 1 - widthturn;
+			}
+			else
+				break;
+		}
 
 		void* lightmap_bitmap;
 
 		if (header.version == 29)
-			lightmap_bitmap = malloc(1024 * 1024 * sizeof(uint8_t));
+			lightmap_bitmap = malloc(l_width * l_height * sizeof(uint8_t));
 		else
-			lightmap_bitmap = malloc(1024 * 1024 * sizeof(rgb_t));
+			lightmap_bitmap = malloc(l_width * l_height * sizeof(rgb_t));
 
-		for (uint32_t i = 0; i < lightmap_rects_size; i++) {
+		if (!lightmap_bitmap) {
+			Con_printf("failed to allocate lightmap bitmap");
+			return ERR_OUT_OF_MEMORY;
+		}
+
+#define INDEXWITHSTRIDE rect1->x + rect1->y * l_width
+		stbrp_rect* rect1 = MEMARRAYINDEXPTR(lightmap_rects, stbrp_rect, 0);
+
+		// black lightmap for surface with no lightmap
+		if (header.version == 29) {
+			((uint8_t*)lightmap_bitmap)[INDEXWITHSTRIDE] = 0;
+		}
+		else {
+			rgb_t C = (rgb_t){ 0, 0, 0 };
+			memcpy(&((rgb_t*)lightmap_bitmap)[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
+		}
+
+		// apply to surfaces with no lightmap
+		for (uint32_t i = 0; i < surface_no_light_count; i++) {
+			uint32_t fid = *MEMARRAYINDEXPTR(surface_no_lights, uint32_t, i);
+			face_t* face = MEMARRAYINDEXPTR(faces, face_t, fid);
+			face_uv* fuv = MEMARRAYINDEXPTR(face_uvs, face_uv, fid);
+			vec2* uv2s = fuv->uv2;
+			for (uint32_t k = 0; k < face->edge_count; k++) {
+				vec2* uv = &uv2s[k];
+
+				vec2 lpos = {
+					((float)rect1->x + 0.5f) / (float)l_width,
+					((float)rect1->y + 0.5f) / (float)l_height
+				};
+
+				vec2 fsize = {
+					(rect1->w - 1) / (float)l_width,
+					(rect1->h - 1) / (float)l_height
+				};
+
+				(*uv)[0] = ((*uv)[0] * fsize[0]) + lpos[0];
+				(*uv)[1] = ((*uv)[1] * fsize[1]) + lpos[1];
+			}
+		}
+
+		Mem_release(&surface_no_lights);
+
+		for (uint32_t i = 1; i < lightmap_rects_size; i++) {
 			stbrp_rect* rect = MEMARRAYINDEXPTR(lightmap_rects, stbrp_rect, i);
 			face_t* face = MEMARRAYINDEXPTR(faces, face_t, rect->id);
 			const uint8_t* lightmapdata = ((uint8_t*)lightmaps.data + face->lightmap);
@@ -830,13 +908,13 @@ int World_load_bsp(const char* map_name)
 				vec2* uv = &uv2s[k];
 
 				vec2 lpos = {
-					((float)rect->x + 0.5f) / 1024.0f,
-					((float)rect->y + 0.5f) / 1024.0f
+					((float)rect->x + 0.5f) / (float)l_width,
+					((float)rect->y + 0.5f) / (float)l_height
 				};
 
 				vec2 fsize = {
-					(rect->w - 1) / 1024.0f,
-					(rect->h - 1) / 1024.0f
+					(rect->w - 1) / (float)l_width,
+					(rect->h - 1) / (float)l_height
 				};
 
 				(*uv)[0] = ((*uv)[0] * fsize[0]) + lpos[0];
@@ -861,14 +939,14 @@ int World_load_bsp(const char* map_name)
 			// paint lightmaps
 			for (uint32_t k = 0; k < 4; k++) {
 				if (face->light[k] == 255) continue;
-#define INDEXWITHSTRIDE (real_width * k + rect->x + x) + (y + rect->y) * 1024
+#define INDEXWITHSTRIDE (real_width * k + rect->x + x) + (y + rect->y) * l_width
 				for (uint32_t y = 0; y < rect->h; y++) {
 					for (uint32_t x = 0; x < real_width; x++) {
 						if (header.version == 29) {
 							((uint8_t*)lightmap_bitmap)[INDEXWITHSTRIDE] = lightmapdata[cc++];
 						}
 						else {
-							rgb_t C = (rgb_t){ lightmapdata[cc++] ,lightmapdata[cc++] ,lightmapdata[cc++] };
+							rgb_t C = (rgb_t){ lightmapdata[cc++], lightmapdata[cc++], lightmapdata[cc++] };
 							memcpy(&((rgb_t*)lightmap_bitmap)[INDEXWITHSTRIDE], &C, sizeof(rgb_t));
 #undef INDEXWITHSTRIDE
 						}
@@ -883,10 +961,10 @@ int World_load_bsp(const char* map_name)
 
 		Texture_new(&lightmap_texture);
 		if (header.version == 29) {
-			Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 1);
+			Texture_from_data(&lightmap_texture, lightmap_bitmap, l_width, l_height, 1);
 		}
 		else {
-			Texture_from_data(&lightmap_texture, lightmap_bitmap, 1024, 1024, 3);
+			Texture_from_data(&lightmap_texture, lightmap_bitmap, l_width, l_height, 3);
 		}
 		//stbi_write_png("lightmap.png", 1024, 1024, 3, lightmap_bitmap, 1024 * 3);
 		free(lightmap_bitmap);
