@@ -88,9 +88,14 @@ void World_draw()
 
 	GLint u_tex = glGetUniformLocation(world_shader.program, "tex");
 	GLint u_lightmap = glGetUniformLocation(world_shader.program, "lightmap");
+	GLint u_tex2 = glGetUniformLocation(world_shader.program, "tex2");
+	GLint is_sky = glGetUniformLocation(world_shader.program, "is_sky");
 
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_lightmap, 1);
+	glUniform1i(u_tex2, 2);
+
+	glUniform1f(glGetUniformLocation(world_shader.program, "time"), glfwGetTime());
 
 	// draw
 	for (int i = 0; i < world_models.size; i++) {
@@ -105,6 +110,15 @@ void World_draw()
 			glBindTexture(GL_TEXTURE_2D, mesh->texture->texture.id);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, lightmap_texture.id);
+
+			if (mesh->texture->is_sky) {
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, mesh->texture->texture2.id);
+				glUniform1i(is_sky, 1);
+			}
+			else {
+				glUniform1i(is_sky, 0);
+			}
 
 			glBindVertexArray(mesh->vao);
 			glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
@@ -579,8 +593,8 @@ int World_load_bsp(const char* map_name)
 			struct rgb {
 				uint8_t r, g, b;
 			};
-			struct rgb* im_data = malloc(tnumsize * sizeof(struct rgb));
 
+			struct rgb* im_data = malloc(tnumsize * sizeof(struct rgb));
 			for (int j = 0; j < tnumsize; j++) {
 				uint8_t index;
 				fread(&index, sizeof(uint8_t), 1, f);
@@ -589,6 +603,35 @@ int World_load_bsp(const char* map_name)
 				im_data[j].r = (uint8_t)(quake_pal[index][0] * 255.0f);
 				im_data[j].g = (uint8_t)(quake_pal[index][1] * 255.0f);
 				im_data[j].b = (uint8_t)(quake_pal[index][2] * 255.0f);
+			}
+
+			texture->is_sky = strncmp("sky", texture->name, 3) == 0;
+			if (texture->is_sky) {
+				if (size[0] != 256 || size[1] != 128) {
+					// bro this is not ok
+				}
+				else {
+					struct rgb* im_data1 = malloc((128 * 128) * sizeof(struct rgb));
+					struct rgb* im_data2 = malloc((128 * 128) * sizeof(struct rgb));
+					// copy to 2 textures
+					for (uint32_t y = 0; y < 128; y++) {
+						for (uint32_t x = 0; x < 128; x++) {
+							im_data1[y * 128 + x] = im_data[y * 256 + x];
+							im_data2[y * 128 + x] = im_data[y * 256 + x + 128];
+						}
+					}
+					free(im_data);
+					glGenTextures(1, &texture->texture2.id);
+					glBindTexture(GL_TEXTURE_2D, texture->texture2.id);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, im_data2);
+					glGenerateMipmap(GL_TEXTURE_2D);
+					free(im_data2);
+					im_data = im_data1;
+					size[0] = 128;
+					size[1] = 128;
+				}
 			}
 
 			glGenTextures(1, &texture->texture.id);

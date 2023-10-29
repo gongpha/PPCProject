@@ -47,7 +47,12 @@ typedef vec4 worldplane_t;
 
 typedef struct {
 	char name[16];
+
 	texture_t texture;
+	texture_t texture2; // available when is_sky is true
+	
+	// preparsed
+	bool is_sky;
 } world_texture_t;
 
 typedef struct {
